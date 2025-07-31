@@ -142,6 +142,14 @@ def graph_pcie_topology(
 def add_synth_multifunction_nodes(root: PcieNode) -> None:
     if root is None:
         return
+
+    """
+    Now, leaves that correspond to the same device 
+    but differ in function are correctly grouped. 
+    """
+    for child in list(root.children):
+        add_synth_multifunction_nodes(child)
+
     if root.children == []:
         return
 
