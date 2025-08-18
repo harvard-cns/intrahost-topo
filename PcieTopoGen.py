@@ -44,32 +44,32 @@ def get_pcie_trees(path: str = "/sys/devices") -> List[PcieNode]:
     Returns:
         List of roots.
     """
-    container_paths: List[str] = []
+    containers: List[str] = []
     try:
         with os.scandir(path) as it:
             for entry in it:
                 if entry.is_dir(follow_symlinks=False) and pci_container_pattern.match(
                     entry.name
                 ):
-                    container_paths.append(entry.path)
+                    containers.append(entry.path)
     except Exception as e:
         print(f"Error getting list of containers: {e}")
 
     nodes: List[PcieNode] = []
-    for container in container_paths:
+    for container in containers:
         nodes.extend(explore_pcie_container(container))
 
     return nodes
 
 
-if __name__ == "__main__":
-    trees = get_pcie_trees("/sys/devices")
-
-    def print_tree(root, level=0):
-        indent = "    " * level
-        print(f"{indent}{root.path[-12:]}")
-        for child in root.children:
-            print_tree(child, level + 1)
-
-    for t in trees:
-        print_tree(t)
+# if __name__ == "__main__":
+#     trees = get_pcie_trees("/sys/devices")
+#
+#     def print_tree(root, level=0):
+#         indent = "    " * level
+#         print(f"{indent}{root.path[-12:]}")
+#         for child in root.children:
+#             print_tree(child, level + 1)
+#
+#     for t in trees:
+#         print_tree(t)
