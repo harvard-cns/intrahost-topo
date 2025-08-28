@@ -1,62 +1,193 @@
 from graphviz import Digraph
 from typing import List, Dict, Optional
-from collections import defaultdict
 from os.path import basename
-
+from collections import deque
 from PcieNode import PcieNode
 from PcieTopoGen import get_pcie_trees
+from collections import defaultdict
+
+
+"""
+get_node_id
+get_node_label
+"""
 
 
 def get_node_id(n: PcieNode) -> str:
-    path = n.path
-    return path.replace("/", "_").replace(":", "_").replace(".", "_").replace("-", "_")
+    """
+    In a Graphviz Diagraph, the id of a node must be unique.
+    In PCIe topology, sysfs paths are unique to nodes.
+    The id for a given PcieNode `n` is its sysfs path.
+    "/", ":", ".", and "-" cannot be in a valid Graphviz node id.
+    """
+
+    uns_p = n.path
+    san_p = (
+        uns_p.replace("/", "_").replace(":", "_").replace(".", "_").replace("-", "_")
+    )
+    return san_p
 
 
 def get_node_label(n: PcieNode) -> str:
+    """
+    Unlike node IDs, labels are displayed
+    in the rendered Graphviz image.
+    """
+
     label = (basename(n.path)) + "\n"
-    label += n.class_ if n.class_ is not None else ""
-    label += n.numa_node if n.numa_node is not None else ""
+    label += (
+        f"curr_lnk_s: {n.current_link_speed} \n"
+        if n.current_link_speed is not None
+        else ""
+    )
+    label += (
+        f"curr_lnk_w: {n.current_link_width} \n"
+        if n.current_link_width is not None
+        else ""
+    )
+    label += f"cls: {n.class_} \n" if n.class_ is not None else ""
+    label += f"numa: {n.numa_node}" if n.numa_node is not None else ""
+
     return label
 
 
+"""
+get_node_parent
+get_node_siblings
+get_node_mf_siblings
+"""
+
+
 def get_node_parent(root: PcieNode, node: PcieNode) -> Optional[PcieNode]:
+    """
+    Returns the parent for node `node` in
+    tree with root `root`.
+
+    If `node` does not have a parent or
+    `node` parent is not found in tree
+    with root `root`, `None` is returned.
+    """
+
     if root is node:
         return None
+
     for child in root.children:
         if child is node:
             return root
+
         parent = get_node_parent(child, node)
         if parent:
             return parent
+
     return None
 
 
 def get_node_siblings(root: PcieNode, node: PcieNode) -> Optional[List[PcieNode]]:
+    """
+    Returns `node` siblings in tree with
+    root `root` including `node`.
+
+    Returns `None` if `node` has no parent.
+    """
     parent = get_node_parent(root, node)
+
     if parent is None:
         return None
+
     return parent.children
 
 
-def get_same_device_siblings(root: PcieNode, node: PcieNode) -> List[PcieNode]:
-    # TODO: Review
+def get_node_mf_siblings(root: PcieNode, node: PcieNode) -> Optional[List[PcieNode]]:
+    """
+    Returns the siblings of `node` that correspond to the same
+    physical device including `node`, i.e., siblings that
+    differ in function.
+
+    Returns `None` if `node` has no siblings.
+    """
     siblings = get_node_siblings(root, node)
     if siblings is None:
-        raise Exception("Something went wrong. ")
+        return None
+
     node_basename = basename(node.path)
     prefix = node_basename[:-1]
     same_device_siblings = []
+
     for s in siblings:
         s_basename = basename(s.path)
         if s_basename.startswith(prefix):
             same_device_siblings.append(s)
+
     return same_device_siblings
 
 
-def add_synth_multifunction_nodes(root: PcieNode) -> None:
-    # TODO: Review
+"""
+is_bridge
+is_switch
+is_synth_mf
+is_mf_bridge
+"""
+
+
+def is_bridge(node: PcieNode):
+    return node.class_ is not None and node.class_.startswith("0x06")
+
+
+def is_switch(node: PcieNode):
+    if not is_bridge(node):
+        return False
+
+    bridge_children_count = 0
+    for c in node.children:
+        if is_bridge(c):
+            bridge_children_count += 1
+
+    return bridge_children_count > 1
+
+
+def is_synth_mf(node: PcieNode):
+    return node.path.endswith("x")
+
+
+def is_mf_bridge(node: PcieNode):
+    if not is_synth_mf(node):
+        return False
+
+    bridges = get_mf_bridge_bridges(node)
+    non_bridges = get_mf_bridge_nonbridges(node)
+    return len(bridges) >= 1 and len(non_bridges) >= 1
+
+
+"""
+get_mf_bridge_bridges
+get_mf_bridge_nonbridges
+"""
+
+
+def get_mf_bridge_bridges(node: PcieNode):
+    bridges = []
+    for child in node.children:
+        if is_bridge(child):
+            bridges.append(child)
+    return bridges
+
+
+def get_mf_bridge_nonbridges(node: PcieNode):
+    non_bridges = []
+    for child in node.children:
+        if not is_bridge(child):
+            non_bridges.append(child)
+    return non_bridges
+
+
+"""
+add_synth_mf_nodes
+"""
+
+
+def add_synth_mf_nodes(root: PcieNode) -> None:
     for child in root.children:
-        add_synth_multifunction_nodes(child)
+        add_synth_mf_nodes(child)
 
     if root.children == []:
         return
@@ -68,18 +199,23 @@ def add_synth_multifunction_nodes(root: PcieNode) -> None:
         if child in processed_children:
             continue
 
-        same_device_siblings = get_same_device_siblings(root, child)
-        if len(same_device_siblings) > 1:
-            prefix = basename(child.path)[:-2]
-            synth_multifunction_node = PcieNode(f"{prefix}.x")
-            synth_multifunction_node.children = same_device_siblings
+        multifunction_siblings = get_node_mf_siblings(root, child)
+        if multifunction_siblings and len(multifunction_siblings) > 1:
+            prefix = basename(child.path)[:-1]
+            synth_multifunction_node = PcieNode(f"{prefix}x")
+            synth_multifunction_node.children = multifunction_siblings
             new_children.append(synth_multifunction_node)
-            for sibling in same_device_siblings:
+            for sibling in multifunction_siblings:
                 processed_children.add(sibling)
         else:
             new_children.append(child)
 
     root.children = new_children
+
+
+"""
+graph_tree
+"""
 
 
 def graph_tree(root: PcieNode, graph: Digraph) -> None:
@@ -93,210 +229,167 @@ def graph_tree(root: PcieNode, graph: Digraph) -> None:
         graph.edge(root_id, child_id)
         graph_tree(child, graph)
 
-    # The redundant traversal is the root cause of the issue.
-    # Clustering should be done in a separate, single pass.
-    # cluster_tree(root, graph)
+
+"""
+get_mf_clusters
+get_switch_clusters
+get_mf_switch_clusters
+"""
 
 
-def is_bridge(node: PcieNode):
-    return node.class_ is not None and node.class_.startswith("0x06")
+def get_mf_clusters(root: PcieNode) -> Dict:
+    clusters = {}
+
+    q = deque()
+    q.append(root)
+
+    while q:
+        curr = q.popleft()
+        if is_synth_mf(curr):
+            curr_id = get_node_id(curr)
+            cluster_name = f"mf_cluster_{curr_id}"
+            clusters[cluster_name] = [curr_id]
+            for c in curr.children:
+                c_id = get_node_id(c)
+                clusters[cluster_name].append(c_id)
+
+        for c in curr.children:
+            q.append(c)
+
+    return clusters
 
 
-def get_switch_downstream(node: PcieNode):
-    downstream = []
+def get_switch_clusters(root: PcieNode) -> Dict:
+    clusters = {}
 
-    for child in node.children:
-        if is_bridge(child):
-            downstream.append(child)
+    q = deque()
+    q.append(root)
 
-    return downstream
+    while q:
+        curr = q.popleft()
+        if is_switch(curr):
+            curr_id = get_node_id(curr)
+            cluster_name = f"switch_{curr_id}"
+            clusters[cluster_name] = [curr_id]
+            for c in curr.children:
+                if is_bridge(c):
+                    c_id = get_node_id(c)
+                    clusters[cluster_name].append(c_id)
 
+        for c in curr.children:
+            q.append(c)
 
-def is_switch(node: PcieNode):
-    downstream = get_switch_downstream(node)
-    return is_bridge(node) and len(downstream) > 1
-
-
-def is_multifunction(node: PcieNode):
-    return node is not None and node.path.endswith(".x")
-
-
-def get_multifunction_bridge_bridges(node: PcieNode):
-    bridges = []
-    for child in node.children:
-        if is_bridge(child):
-            bridges.append(child)
-    return bridges
+    return clusters
 
 
-def get_multifunction_switch_non_bridges(node: PcieNode):
-    non_bridges = []
-    for child in node.children:
-        if not is_bridge(child):
-            non_bridges.append(child)
-    return non_bridges
+def get_mf_switch_clusters(root: PcieNode) -> Dict:
+    clusters = {}
+
+    q = deque()
+    q.append(root)
+
+    while q:
+        curr = q.popleft()
+        if is_mf_bridge(curr):
+            curr_id = get_node_id(curr)
+            cluster_name = f"mf_switch_{curr_id}"
+            clusters[cluster_name] = [curr_id]
+
+            bridges = get_mf_bridge_bridges(curr)
+            nonbridges = get_mf_bridge_nonbridges(curr)
+
+            for b in bridges:
+                b_id = get_node_id(b)
+                clusters[cluster_name].append(b_id)
+                for c in b.children:
+                    c_id = get_node_id(c)
+                    clusters[cluster_name].append(c_id)
+
+            for n in nonbridges:
+                n_id = get_node_id(n)
+                clusters[cluster_name].append(n_id)
+
+        for c in curr.children:
+            q.append(c)
+
+    return clusters
 
 
-def is_multifunction_bridge(node: PcieNode):
-    if not is_multifunction(node):
-        return False
+def graph_pcie_topology(roots: List[PcieNode], numa: str) -> None:
+    graph_name = f"numa_{numa}"
+    graph_label = f"numa_{numa}"
+    graph_format = "png"
+    graph = Digraph(name=graph_name, filename=graph_label, format=graph_format)
+    graph.attr(compound="true")
 
-    bridges = get_multifunction_bridge_bridges(node)
-    non_bridges = get_multifunction_switch_non_bridges(node)
-    return len(bridges) >= 1 and len(non_bridges) >= 1
+    for r in roots:
+        graph_tree(r, graph)
 
+    for r in roots:
+        mf_switch_clusters = get_mf_switch_clusters(r)
+        for name, ids in mf_switch_clusters.items():
+            with graph.subgraph(name=name) as mf_switch_cluster:
+                mf_switch_cluster.attr(
+                    cluster="true",
+                    label=name,
+                    style="filled",
+                    color="lightblue",
+                    pencolor="black",
+                )
 
-def cluster_tree(
-    root: PcieNode, graph: Digraph, parent: Optional[PcieNode] = None
-) -> None:
-    if root is None:
-        return
+                for id in ids:
+                    mf_switch_cluster.node(id)
 
-    is_parent_mfb = parent is not None and is_multifunction_bridge(parent)
+    for r in roots:
+        switch_clusters = get_switch_clusters(r)
+        for name, ids in switch_clusters.items():
+            with graph.subgraph(name=name) as switch_cluster:
+                switch_cluster.attr(
+                    cluster="true",
+                    label=name,
+                    style="filled",
+                    color="lightblue",
+                    pencolor="black",
+                )
 
-    if is_multifunction_bridge(root):
-        root_id = get_node_id(root)
-        mf_cluster_name = f"cluster_mfb_{root_id}"
-        with graph.subgraph(name=mf_cluster_name) as mf_cluster:
-            mf_cluster.attr(
-                cluster="true",
-                label="mfb",
-                style="filled",
-                color="aqua",
-                pencolor="black",
-            )
-            # Add the multifunction root node to the cluster
-            mf_cluster.node(get_node_id(root), get_node_label(root))
+                for id in ids:
+                    switch_cluster.node(id)
 
-            bridge = get_multifunction_bridge_bridges(root)[0]
-            non_bridges = get_multifunction_switch_non_bridges(root)
+    for r in roots:
+        mf_clusters = get_mf_clusters(r)
+        for name, ids in mf_clusters.items():
+            with graph.subgraph(name=name) as mf_cluster:
+                mf_cluster.attr(
+                    cluster="true",
+                    label=name,
+                    style="filled",
+                    color="yellow",
+                    pencolor="black",
+                )
 
-            # Add the bridge and non-bridge children to the cluster
-            mf_cluster.node(get_node_id(bridge), get_node_label(bridge))
-            for nb in non_bridges:
-                mf_cluster.node(get_node_id(nb), get_node_label(nb))
+                for id in ids:
+                    mf_cluster.node(id)
 
-            # Add the children of the bridge to the cluster
-            for bridge_child in bridge.children:
-                mf_cluster.node(get_node_id(bridge_child), get_node_label(bridge_child))
-
-        # Now, continue the clustering process for the grandchildren, but on the main graph
-        bridge = get_multifunction_bridge_bridges(root)[0]
-        for bridge_child in bridge.children:
-            for grandchild in bridge_child.children:
-                cluster_tree(grandchild, graph, bridge_child)
-
-        non_bridges = get_multifunction_switch_non_bridges(root)
-        for nb in non_bridges:
-            for nb_child in nb.children:
-                cluster_tree(nb_child, graph, nb)
-
-        return
-
-    # Add the current node to the graph it belongs to
-    graph.node(get_node_id(root), label=get_node_label(root))
-
-    if is_switch(root) and not is_parent_mfb:
-        cluster_switch(root, graph)
-        return
-
-    if is_multifunction(root) and not is_multifunction_bridge(root):
-        cluster_multifunction(root, graph)
-        return
-
-    # General recursion for children of unclustered nodes
-    for child in root.children:
-        cluster_tree(child, graph, root)
-
-
-def cluster_switch(node: PcieNode, graph: Digraph) -> None:
-    node_id = get_node_id(node)
-    cluster_name = f"cluster_switch_{node_id}"
-    with graph.subgraph(name=cluster_name) as cluster:
-        cluster.attr(
-            cluster="true",
-            label="switch",
-            style="filled",
-            color="lightblue",
-            pencolor="black",
-        )
-        cluster.node(node_id, label=get_node_label(node))
-
-        for child in node.children:
-            if is_bridge(child):
-                cluster.node(get_node_id(child), get_node_label(child))
-
-
-def cluster_multifunction(root: PcieNode, graph: Digraph) -> None:
-    root_id = get_node_id(root)
-    cluster_name = f"cluster_multifunction_{root_id}"
-    with graph.subgraph(name=cluster_name) as cluster:
-        cluster.attr(
-            cluster="true",
-            label="multifunction",
-            style="filled",
-            color="yellow",
-            pencolor="black",
-        )
-        cluster.node(root_id, label=get_node_label(root))
-
-        for child in root.children:
-            cluster.node(get_node_id(child), label=get_node_label(child))
-
-
-def graph_pcie_topology(
-    pcie_trees: List[PcieNode],
-    filename: str = "pcie_topology",
-    format: str = "png",
-) -> Digraph:
-    graph = Digraph(name="pcie_topology", filename=filename, format=format)
-    graph.attr(compound="true")  # Enable edges between clusters
-
-    numa_node_clusters: Dict[Optional[int], List[PcieNode]] = defaultdict(list)
-    for root in pcie_trees:
-        numa_node = root.numa_node
-        if numa_node is not None:
-            try:
-                numa_node = int(numa_node)
-            except (ValueError, TypeError):
-                numa_node = -1  # Handle non-integer numa_node values
-            numa_node_clusters[numa_node].append(root)
-
-    for numa_node, roots in numa_node_clusters.items():
-        name = f"cluster_numa_node_{numa_node}"
-        label = f"numa_node_{numa_node}"
-        with graph.subgraph(name=name) as numa_cluster:
-            numa_cluster.attr(
-                cluster="true",
-                label=label,
-                style="filled",
-                color="lightgray",
-                pencolor="black",
-            )
-            for root in roots:
-                if root.children:
-                    # Omit trees that consist of only a single root.
-                    # First, build the visual graph of nodes and edges.
-                    graph_tree(root, numa_cluster)
-                    # Then, apply the clustering logic in a separate pass.
-                    cluster_tree(root, numa_cluster)
-
-    graph.render(filename, view=False, cleanup=True)
-    return graph
+    graph.render(graph_name, view=False, cleanup=True)
 
 
 if __name__ == "__main__":
-    pcie_trees = get_pcie_trees("/sys/devices")
+    roots = get_pcie_trees("/sys/devices")
 
-    all_roots = []
-    # The synthetic node logic needs to be applied carefully.
-    # The original implementation had some issues. Let's do a simple pass.
-    # A more robust implementation would be needed for complex cases.
+    # Ignore childless roots.
+    roots_with_children = []
+    for r in roots:
+        if r.children != []:
+            roots_with_children.append(r)
 
-    # Let's assume add_synth_multifunction_nodes is run before grouping by NUMA
-    processed_trees = []
-    for t in pcie_trees:
-        add_synth_multifunction_nodes(t)
-        processed_trees.append(t)
+    # Add synthetic multifunction nodes.
+    for r in roots_with_children:
+        add_synth_mf_nodes(r)
 
-    graph_pcie_topology(processed_trees)
+    numa_roots = defaultdict(list)
+    for r in roots_with_children:
+        if r.numa_node is not None:
+            numa_roots[r.numa_node].append(r)
+
+    for numa, roots in numa_roots.items():
+        graph_pcie_topology(roots, numa)

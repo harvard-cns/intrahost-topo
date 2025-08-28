@@ -1,26 +1,28 @@
 import os
 import subprocess
-from typing import Optional
+from typing import Dict, List, Optional
 
 
 class PcieNode:
     def __init__(self, path: str) -> None:
-        self.path = path  # E.g., "/sys/devices/pci0000:e0/0000:e0:05.1".
+        self.path: str = path  # E.g., "/sys/devices/pci0000:e0/0000:e0:05.1".
 
-        self.device = None
-        self.vendor = None
-        self.lspci_vmm = None  # Output of `lspci -vvm -d <vendor>:<device>`.
-        self.class_ = None
-        self.numa_node = None
-        self.max_link_speed = None
-        self.current_link_speed = None
-        self.max_link_width = None
-        self.current_link_width = None
-        self.children = []
+        self.device: Optional[str] = None
+        self.vendor: Optional[str] = None
+        self.lspci_vmm: Optional[Dict] = (
+            None  # Output of `lspci -vvm -d <vendor>:<device>`.
+        )
+        self.class_: Optional[str] = None
+        self.numa_node: Optional[str] = None
+        self.max_link_speed: Optional[str] = None
+        self.current_link_speed: Optional[str] = None
+        self.max_link_width: Optional[str] = None
+        self.current_link_width: Optional[str] = None
+        self.children: List = []
 
         if os.path.exists(self.path):
-            self.set_vendor()
             self.set_device()
+            self.set_vendor()
             self.set_lspci_vmm()
             self.set_class()
             self.set_numa_node()
@@ -40,7 +42,7 @@ class PcieNode:
             return None
 
     @staticmethod
-    def _parse_lspci_vmm_output(output: str) -> dict:
+    def _parse_lspci_vmm_output(output: str) -> Dict:
         """
         Args:
             output: Output of `lspci -vvm -d <vendor>:<device>`.
