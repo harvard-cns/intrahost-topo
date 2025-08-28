@@ -1,0 +1,6 @@
+name: host-topo
+channels:
+  - defaults
+dependencies:
+  - python=3
+  - python-graphviz
