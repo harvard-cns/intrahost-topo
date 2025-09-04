@@ -28,25 +28,44 @@ def get_node_id(n: PcieNode) -> str:
     return san_p
 
 
+def is_3d_controller(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x0302")
+
+
+def get_class_label(n: PcieNode) -> str:
+    if is_other_sys_peripheral(n):
+        return "Other system peripheral"
+    elif is_3d_controller(n):
+        return "3D controller"
+    elif is_bridge(n):
+        return "Bridge"
+    else:
+        return n.class_ if n.class_ is not None else ""
+
+
 def get_node_label(n: PcieNode) -> str:
     """
     Unlike node IDs, labels are displayed
     in the rendered Graphviz image.
     """
 
-    label = (basename(n.path)) + "\n"
+    label = (basename(n.path)[5:]) + "\n"
+    label += f"vendor: {n.vendor} \n" if n.vendor is not None else ""
+    label += f"device: {n.device} \n" if n.device is not None else ""
     label += (
         f"curr_lnk_s: {n.current_link_speed} \n"
         if n.current_link_speed is not None
         else ""
     )
+    label += f"max_lnk_s: {n.max_link_speed} \n" if n.max_link_speed is not None else ""
     label += (
         f"curr_lnk_w: {n.current_link_width} \n"
         if n.current_link_width is not None
         else ""
     )
-    label += f"cls: {n.class_} \n" if n.class_ is not None else ""
-    label += f"numa: {n.numa_node}" if n.numa_node is not None else ""
+    label += f"max_lnk_w: {n.max_link_width} \n" if n.max_link_width is not None else ""
+    label += f"cls: {get_class_label(n)} \n" if n.class_ is not None else ""
+    # label += f"numa: {n.numa_node}" if n.numa_node is not None else ""
 
     return label
 
@@ -129,6 +148,10 @@ is_mf_bridge
 """
 
 
+def is_other_sys_peripheral(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x0880")
+
+
 def is_bridge(node: PcieNode):
     return node.class_ is not None and node.class_.startswith("0x06")
 
@@ -149,12 +172,12 @@ def is_synth_mf(node: PcieNode):
     return node.path.endswith("x")
 
 
-def is_mf_bridge(node: PcieNode):
+def is_mf_switch(node: PcieNode):
     if not is_synth_mf(node):
         return False
 
-    bridges = get_mf_bridge_bridges(node)
-    non_bridges = get_mf_bridge_nonbridges(node)
+    bridges = get_mf_switch_downstream_bridges(node)
+    non_bridges = get_mf_switch_downstream_nonbridges(node)
     return len(bridges) >= 1 and len(non_bridges) >= 1
 
 
@@ -164,7 +187,7 @@ get_mf_bridge_nonbridges
 """
 
 
-def get_mf_bridge_bridges(node: PcieNode):
+def get_mf_switch_downstream_bridges(node: PcieNode):
     bridges = []
     for child in node.children:
         if is_bridge(child):
@@ -172,7 +195,7 @@ def get_mf_bridge_bridges(node: PcieNode):
     return bridges
 
 
-def get_mf_bridge_nonbridges(node: PcieNode):
+def get_mf_switch_downstream_nonbridges(node: PcieNode):
     non_bridges = []
     for child in node.children:
         if not is_bridge(child):
@@ -214,15 +237,28 @@ def add_synth_mf_nodes(root: PcieNode) -> None:
 
 
 """
+get_node_color
 graph_tree
 """
+
+
+def get_node_color(n: PcieNode) -> str:
+    """Determines the fill color for a node."""
+
+    if is_other_sys_peripheral(n):
+        return "antiquewhite4"
+    if is_bridge(n):
+        return "lightblue"
+    if is_3d_controller(n):
+        return "green"
+    return "white"
 
 
 def graph_tree(root: PcieNode, graph: Digraph) -> None:
     root_id = get_node_id(root)
     root_label = get_node_label(root)
-
-    graph.node(root_id, label=root_label)
+    node_color = get_node_color(root)
+    graph.node(root_id, label=root_label, style="filled", fillcolor=node_color)
 
     for child in root.children:
         child_id = get_node_id(child)
@@ -290,13 +326,13 @@ def get_mf_switch_clusters(root: PcieNode) -> Dict:
 
     while q:
         curr = q.popleft()
-        if is_mf_bridge(curr):
+        if is_mf_switch(curr):
             curr_id = get_node_id(curr)
             cluster_name = f"mf_switch_{curr_id}"
             clusters[cluster_name] = [curr_id]
 
-            bridges = get_mf_bridge_bridges(curr)
-            nonbridges = get_mf_bridge_nonbridges(curr)
+            bridges = get_mf_switch_downstream_bridges(curr)
+            nonbridges = get_mf_switch_downstream_nonbridges(curr)
 
             for b in bridges:
                 b_id = get_node_id(b)
