@@ -55,9 +55,24 @@ def get_node_label(n: PcieNode) -> str:
     in the rendered Graphviz image.
     """
 
+    # ID (PCIe slot)
     label = (basename(n.path)[5:]) + "\n"
-    label += f"vendor: {n.vendor} \n" if n.vendor is not None else ""
-    label += f"device: {n.device} \n" if n.device is not None else ""
+    
+    # Use device resolver to get human-readable names
+    from device_resolver import get_device_resolver
+    resolver = get_device_resolver()
+    
+    # Vendor
+    if n.vendor is not None:
+        vendor_name = resolver.get_vendor_name(n.vendor)
+        label += f"vendor: {vendor_name} \n"
+    
+    # Device
+    if n.device is not None:
+        device_name = resolver.get_device_name(n.vendor, n.device)
+        label += f"device: {device_name} \n"
+    
+    # Other items
     label += (
         f"curr_lnk_s: {n.current_link_speed} \n"
         if n.current_link_speed is not None
@@ -418,6 +433,9 @@ def graph_pcie_topology(roots: List[PcieNode], numa: str) -> None:
 
 
 if __name__ == "__main__":
+    from filter_config import get_active_filters
+    from mappings import filter_trees_by_classes
+    
     roots = get_pcie_trees("/sys/devices")
 
     # Ignore childless roots.
@@ -430,8 +448,21 @@ if __name__ == "__main__":
     for r in roots_with_children:
         add_synth_mf_nodes(r)
 
+    """
+    Apply the filters specified in the filter_config.py file.
+    """
+    
+    active_filters = get_active_filters()
+    if active_filters:
+        filtered_roots = filter_trees_by_classes(roots_with_children, active_filters)
+        if not filtered_roots:
+            print("No trees match the active filters.")
+            exit(0)
+    else:
+        filtered_roots = roots_with_children
+
     numa_roots = defaultdict(list)
-    for r in roots_with_children:
+    for r in filtered_roots:
         if r.numa_node is not None:
             numa_roots[r.numa_node].append(r)
 

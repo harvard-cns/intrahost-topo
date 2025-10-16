@@ -195,19 +195,10 @@ def get_device_class_label(node: PcieNode) -> str:
     for class_code, label in class_mappings.items():
         if node.class_.startswith(class_code):
             return label
-    
     return f"Unknown class ({node.class_})"
 
 
 def tree_contains_class(root: PcieNode, target_classes: List[str]) -> bool:
-    """
-    Contains at least one node from target_classes.
-    Args:
-        root: Root node of the PCIe tree
-        target_classes: List of class labels to search for
-    Returns:
-        True if tree contains at least one matching node
-    """
     target_set = {cls.lower().strip() for cls in target_classes}
     
     def check_node(node: PcieNode) -> bool:
@@ -225,14 +216,6 @@ def tree_contains_class(root: PcieNode, target_classes: List[str]) -> bool:
 
 
 def filter_trees_by_classes(roots: List[PcieNode], target_classes: List[str]) -> List[PcieNode]:
-    """
-    Args:
-        roots: List of PCIe tree roots
-        target_classes: List of class labels to filter by
-        
-    Returns:
-        List of trees that contain at least one node with the specified classes
-    """
     if not target_classes:
         return roots
     
@@ -245,16 +228,8 @@ def filter_trees_by_classes(roots: List[PcieNode], target_classes: List[str]) ->
 
 
 def parse_filter_classes(filter_string: str) -> List[str]:
-    """
-    parse string of class names
-    
-    Args:
-        filter_string: Comma-separated list of class names
-    Returns:
-        List of cleaned class names
-    """
+
     if not filter_string:
         return []
-    
     classes = [cls.strip() for cls in filter_string.split(',')]
     return [cls for cls in classes if cls]
