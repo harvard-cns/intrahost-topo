@@ -28,4 +28,4 @@ The visualizer automatically converts raw PCI vendor/device IDs into human-reada
 
 ### Output
 
-See `numa_[i].png` for `i` is a NUMA node on the current machine. 
+See `numa_[i].pdf` for `i` is a NUMA node on the current machine. 

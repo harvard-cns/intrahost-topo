@@ -12,10 +12,13 @@ the specified classes (where filter=True), include the entire tree.
 # =============================================================================
 # QUICK FILTERS
 # =============================================================================
+from pickle import FALSE
+
+
 show_all = True
 show_any_gpu = True
-show_any_ethernet = True
-show_any_storage = True 
+show_any_ethernet = False
+show_any_storage = False 
 
 # =============================================================================
 # UNCLASSIFIED DEVICES (Base Class 00h)
@@ -48,7 +51,7 @@ show_other_mass_storage_controller = False
 # =============================================================================
 # NETWORK CONTROLLERS (Base Class 02h)
 # =============================================================================
-show_ethernet_controller = True
+show_ethernet_controller = False
 show_token_ring_network_controller = False
 show_fddi_network_controller = False
 show_atm_network_controller = False
@@ -64,7 +67,7 @@ show_other_network_controller = False
 # =============================================================================
 show_vga_compatible_controller = False
 show_xga_controller = False
-show_3d_controller = True
+show_3d_controller = False
 show_other_display_controller = False
 
 # =============================================================================

@@ -55,22 +55,38 @@ def get_node_label(n: PcieNode) -> str:
     in the rendered Graphviz image.
     """
 
-    # ID (PCIe slot)
     label = (basename(n.path)[5:]) + "\n"
     
-    # Use device resolver to get human-readable names
     from device_resolver import get_device_resolver
     resolver = get_device_resolver()
     
-    # Vendor
+    #Vendor
     if n.vendor is not None:
         vendor_name = resolver.get_vendor_name(n.vendor)
         label += f"vendor: {vendor_name} \n"
     
-    # Device
+    #Device
     if n.device is not None:
         device_name = resolver.get_device_name(n.vendor, n.device)
         label += f"device: {device_name} \n"
+    
+    #System identifiers (network interfaces, RDMA devices, GPU indices)
+    from system_identifiers import get_system_resolver
+    sys_resolver = get_system_resolver()
+    
+    netdev, rdma, gpu_idx = sys_resolver.get_all_identifiers(n.path)
+    
+    #Add network interface
+    if netdev:
+        label += f"iface: {netdev} \n"
+    
+    #Add RDMA
+    if rdma:
+        label += f"rdma: {rdma} \n"
+    
+    #Add GPU index
+    if gpu_idx is not None:
+        label += f"GPU: {gpu_idx} \n"
     
     # Other items
     label += (
@@ -86,7 +102,6 @@ def get_node_label(n: PcieNode) -> str:
     )
     label += f"max_lnk_w: {n.max_link_width} \n" if n.max_link_width is not None else ""
     label += f"cls: {get_class_label(n)} \n" if n.class_ is not None else ""
-    # label += f"numa: {n.numa_node}" if n.numa_node is not None else ""
 
     return label
 
@@ -377,7 +392,7 @@ def get_mf_switch_clusters(root: PcieNode) -> Dict:
 def graph_pcie_topology(roots: List[PcieNode], numa: str) -> None:
     graph_name = f"numa_{numa}"
     graph_label = f"numa_{numa}"
-    graph_format = "png"
+    graph_format = "pdf"
     graph = Digraph(name=graph_name, filename=graph_label, format=graph_format)
     graph.attr(compound="true")
 

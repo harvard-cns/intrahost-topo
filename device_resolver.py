@@ -9,10 +9,11 @@ from typing import Optional, Dict
 
 
 class DeviceResolver:
-    def __init__(self, known_devices_path: str = "Known_devices.json"):
+    def __init__(self, known_devices_path: str = "Known_devices.json", known_vendors_path: str = "Known_vendors.json"):
         self.device_cache: Dict[str, str] = {}
         self.vendor_cache: Dict[str, str] = {}
         self.known_devices = self._load_known_devices(known_devices_path)
+        self.known_vendors = self._load_known_vendors(known_vendors_path)
     
     def _load_known_devices(self, path: str) -> Dict:
         try:
@@ -21,7 +22,16 @@ class DeviceResolver:
                     return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
-        return {"devices": {}, "vendors": {}}
+        return {}
+    
+    def _load_known_vendors(self, path: str) -> Dict:
+        try:
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+        return {}
     
     def _query_lspci(self, vendor_id: str, device_id: str) -> Optional[tuple]:
         """Query lspci for vendor and device names, return (vendor, device) or None."""
@@ -53,12 +63,12 @@ class DeviceResolver:
         if vendor_id in self.vendor_cache:
             return self.vendor_cache[vendor_id]
         
-        if vendor_id in self.known_devices.get("vendors", {}):
-            vendor_name = self.known_devices["vendors"][vendor_id]
+        if vendor_id in self.known_vendors:
+            vendor_name = self.known_vendors[vendor_id]
             self.vendor_cache[vendor_id] = vendor_name
             return vendor_name
         
-        # Try lspci for vendor name
+        # Try lspci
         lspci_result = self._query_lspci(vendor_id, "0000")
         if lspci_result:
             vendor_name, _ = lspci_result
@@ -81,12 +91,14 @@ class DeviceResolver:
         if device_key in self.device_cache:
             return self.device_cache[device_key]
         
-        if device_key in self.known_devices.get("devices", {}):
-            device_name = self.known_devices["devices"][device_key]
-            self.device_cache[device_key] = device_name
-            return device_name
+        if vendor_id in self.known_devices:
+            vendor_devices = self.known_devices[vendor_id]
+            if device_id in vendor_devices:
+                device_name = vendor_devices[device_id]
+                self.device_cache[device_key] = device_name
+                return device_name
         
-        # Try lspci
+        #Try lspci
         lspci_result = self._query_lspci(vendor_id, device_id)
         if lspci_result:
             _, device_name = lspci_result
