@@ -15,10 +15,12 @@ class SystemIdentifierResolver:
         self.pci_to_netdev: Dict[str, str] = {}  # PCIe address -> network interface (e.g., "enp63s0f0np0")
         self.netdev_to_rdma: Dict[str, str] = {}  # network interface -> RDMA device (e.g., "mlx5_1")
         self.pci_to_gpu: Dict[str, int] = {}  # PCIe address -> GPU index
+        self.pci_to_nvme: Dict[str, str] = {}  # PCIe address -> NVMe device (e.g., "nvme0")
         
         self._load_network_interfaces()
         self._load_rdma_devices()
         self._load_gpu_indices()
+        self._load_nvme_devices()
     
     def _extract_pci_address(self, path: str) -> Optional[str]:
         matches = re.findall(r'([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7])', path)
@@ -96,6 +98,28 @@ class SystemIdentifierResolver:
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
             pass
     
+    def _load_nvme_devices(self):
+        """Load NVMe device mappings from /sys/bus/pci/devices/"""
+        pci_devices_dir = "/sys/bus/pci/devices"
+        
+        if not os.path.exists(pci_devices_dir):
+            return
+        
+        try:
+            for pci_addr in os.listdir(pci_devices_dir):
+                normalized_addr = pci_addr.lower()
+                nvme_dir = os.path.join(pci_devices_dir, pci_addr, "nvme")
+                if os.path.exists(nvme_dir):
+                    try:
+                        nvme_devices = os.listdir(nvme_dir)
+                        if nvme_devices:
+                            # Typically one NVMe device per controller
+                            self.pci_to_nvme[normalized_addr] = nvme_devices[0]
+                    except (OSError, PermissionError):
+                        continue
+        except (OSError, PermissionError):
+            pass
+    
     def get_network_interface(self, node_path: str) -> Optional[str]:
         pci_addr = self._extract_pci_address(node_path)
         if not pci_addr:
@@ -127,12 +151,26 @@ class SystemIdentifierResolver:
         
         return None
     
-    def get_all_identifiers(self, node_path: str) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+    def get_nvme_device(self, node_path: str) -> Optional[str]:
+        """Get NVMe device name for a PCIe node, or None if not found."""
+        pci_addr = self._extract_pci_address(node_path)
+        if not pci_addr:
+            return None
+        
+        normalized = self._normalize_pci_address(pci_addr)
+        return self.pci_to_nvme.get(normalized)
+    
+    def get_all_identifiers(self, node_path: str) -> Tuple[Optional[str], Optional[str], Optional[int], Optional[str]]:
+        """
+        Get all system identifiers for a PCIe node.
+        Returns: (network_interface, rdma_device, gpu_index, nvme_device)
+        """
         netdev = self.get_network_interface(node_path)
         rdma = self.get_rdma_device(node_path)
         gpu_idx = self.get_gpu_index(node_path)
+        nvme = self.get_nvme_device(node_path)
         
-        return (netdev, rdma, gpu_idx)
+        return (netdev, rdma, gpu_idx, nvme)
 
 
 # Global instance

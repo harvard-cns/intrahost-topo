@@ -74,7 +74,7 @@ def get_node_label(n: PcieNode) -> str:
     from system_identifiers import get_system_resolver
     sys_resolver = get_system_resolver()
     
-    netdev, rdma, gpu_idx = sys_resolver.get_all_identifiers(n.path)
+    netdev, rdma, gpu_idx, nvme = sys_resolver.get_all_identifiers(n.path)
     
     #Add network interface
     if netdev:
@@ -87,6 +87,10 @@ def get_node_label(n: PcieNode) -> str:
     #Add GPU index
     if gpu_idx is not None:
         label += f"GPU: {gpu_idx} \n"
+    
+    #Add NVMe device
+    if nvme:
+        label += f"nvme: {nvme} \n"
     
     # Other items
     label += (
