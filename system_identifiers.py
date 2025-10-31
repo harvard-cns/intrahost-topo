@@ -99,7 +99,6 @@ class SystemIdentifierResolver:
             pass
     
     def _load_nvme_devices(self):
-        """Load NVMe device mappings from /sys/bus/pci/devices/"""
         pci_devices_dir = "/sys/bus/pci/devices"
         
         if not os.path.exists(pci_devices_dir):
