@@ -3,15 +3,18 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "runArgs": [
+    "--gpus=all",
+    "--network=host"
+  ],
   
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python.vscode-pylance"
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker"
       ]
     }
   }
 }
-
-
