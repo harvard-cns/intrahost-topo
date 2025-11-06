@@ -5,6 +5,8 @@ from collections import deque
 from PcieNode import PcieNode
 from PcieTopoGen import get_pcie_trees
 from collections import defaultdict
+import argparse
+import os
 
 
 """
@@ -393,12 +395,15 @@ def get_mf_switch_clusters(root: PcieNode) -> Dict:
     return clusters
 
 
-def graph_pcie_topology(roots: List[PcieNode], numa: str) -> None:
+def graph_pcie_topology(roots: List[PcieNode], numa: str, output_dir: str = ".") -> None:
     graph_name = f"numa_{numa}"
     graph_label = f"numa_{numa}"
     graph_format = "pdf"
     graph = Digraph(name=graph_name, filename=graph_label, format=graph_format)
     graph.attr(compound="true")
+    
+    # Set the output directory
+    graph.directory = output_dir
 
     for r in roots:
         graph_tree(r, graph)
@@ -455,6 +460,20 @@ if __name__ == "__main__":
     from filter_config import get_active_filters
     from mappings import filter_trees_by_classes
     
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Visualize PCIe topology and generate PDF files.")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=".",
+        help="Directory where PDF files will be saved (default: current directory)"
+    )
+    args = parser.parse_args()
+    
+    # Create output directory if it doesn't exist
+    if args.output_dir != ".":
+        os.makedirs(args.output_dir, exist_ok=True)
+    
     roots = get_pcie_trees("/sys/devices")
 
     # Ignore childless roots.
@@ -486,4 +505,4 @@ if __name__ == "__main__":
             numa_roots[r.numa_node].append(r)
 
     for numa, roots in numa_roots.items():
-        graph_pcie_topology(roots, numa)
+        graph_pcie_topology(roots, numa, args.output_dir)
