@@ -1,5 +1,5 @@
 {
-  "name": "Intrahost Topology Dev Container",
+  "name": "HostTopoVis DevContainer",
   "build": {
     "dockerfile": "Dockerfile"
   },
