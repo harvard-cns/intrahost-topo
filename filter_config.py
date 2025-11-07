@@ -241,7 +241,7 @@ show_non_essential_instrumentation_function = False
 
 def get_active_filters():
     from mappings import get_device_class_label
-    from PcieNode import PcieNode
+    from pcie_node import PcieNode
     
     current_module = globals()
     active_filters = []

@@ -1,5 +1,5 @@
 from typing import List
-from PcieNode import PcieNode
+from pcie_node import PcieNode
 
 
 def get_device_class_label(node: PcieNode) -> str:

@@ -19,4 +19,4 @@ WORKDIR /app
 # Create output directory for PDF files
 RUN mkdir -p /output
 
-ENTRYPOINT ["python3", "PcieTopoVis.py", "--output-dir", "/output"]
+ENTRYPOINT ["python3", "pcie_topo_vis.py", "--output-dir", "/output"]

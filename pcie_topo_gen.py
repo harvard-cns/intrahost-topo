@@ -1,7 +1,7 @@
 import os
 import re  # Regular expression
 from typing import List
-from PcieNode import PcieNode
+from pcie_node import PcieNode
 
 pci_container_pattern = re.compile(
     r"^pci[0-9a-fA-F]{4}:[0-9a-fA-F]{2}$"

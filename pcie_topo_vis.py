@@ -2,8 +2,8 @@ from graphviz import Digraph
 from typing import List, Dict, Optional
 from os.path import basename
 from collections import deque
-from PcieNode import PcieNode
-from PcieTopoGen import get_pcie_trees
+from pcie_node import PcieNode
+from pcie_topo_gen import get_pcie_trees
 from collections import defaultdict
 import argparse
 import os

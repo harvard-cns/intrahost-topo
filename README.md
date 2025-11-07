@@ -27,7 +27,7 @@ conda activate host-topo
 
 Now run the visualizer:
 ```
-python3 PcieTopoVis.py
+python3 pcie_topo_vis.py
 ```
 
 ### Output
