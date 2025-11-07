@@ -1,7 +1,8 @@
 {
   "name": "HostTopoVis DevContainer",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
   "runArgs": [
     "--gpus=all",
