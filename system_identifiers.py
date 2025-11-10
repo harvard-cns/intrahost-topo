@@ -13,7 +13,7 @@ from os.path import basename
 class SystemIdentifierResolver:
     def __init__(self):
         self.pci_to_netdev: Dict[str, str] = {}  # PCIe address -> network interface (e.g., "enp63s0f0np0")
-        self.netdev_to_rdma: Dict[str, str] = {}  # network interface -> RDMA device (e.g., "mlx5_1")
+        self.pci_to_rdma: Dict[str, str] = {}  # PCIe address -> RDMA device (e.g., "mlx5_1")
         self.pci_to_gpu: Dict[str, int] = {}  # PCIe address -> GPU index
         self.pci_to_nvme: Dict[str, str] = {}  # PCIe address -> NVMe device (e.g., "nvme0")
         
@@ -54,22 +54,24 @@ class SystemIdentifierResolver:
             pass
     
     def _load_rdma_devices(self):
+        pci_devices_dir = "/sys/bus/pci/devices"
+        
+        if not os.path.exists(pci_devices_dir):
+            return
+        
         try:
-            result = subprocess.run(
-                ["ibdev2netdev"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            
-            if result.returncode == 0:
-                for line in result.stdout.splitlines():
-                    match = re.match(r'(\S+)\s+port\s+\d+\s+==>\s+(\S+)', line)
-                    if match:
-                        rdma_dev = match.group(1) 
-                        netdev = match.group(2)
-                        self.netdev_to_rdma[netdev] = rdma_dev
-        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            for pci_addr in os.listdir(pci_devices_dir):
+                normalized_addr = pci_addr.lower()
+                rdma_dir = os.path.join(pci_devices_dir, pci_addr, "infiniband")
+                if os.path.exists(rdma_dir):
+                    try:
+                        rdma_devices = os.listdir(rdma_dir)
+                        if rdma_devices:
+                            # Typically only 1 infiniband device per controller
+                            self.pci_to_rdma[normalized_addr] = rdma_devices[0]
+                    except (OSError, PermissionError):
+                        continue
+        except (OSError, PermissionError):
             pass
     
     def _load_gpu_indices(self):
@@ -128,11 +130,13 @@ class SystemIdentifierResolver:
         return self.pci_to_netdev.get(normalized)
     
     def get_rdma_device(self, node_path: str) -> Optional[str]:
-        netdev = self.get_network_interface(node_path)
-        if not netdev:
+        """Get RDMA device name for a PCIe node, or None if not found."""
+        pci_addr = self._extract_pci_address(node_path)
+        if not pci_addr:
             return None
         
-        return self.netdev_to_rdma.get(netdev)
+        normalized = self._normalize_pci_address(pci_addr)
+        return self.pci_to_rdma.get(normalized)
     
     def get_gpu_index(self, node_path: str) -> Optional[int]:
         pci_addr = self._extract_pci_address(node_path)
