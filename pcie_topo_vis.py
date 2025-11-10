@@ -34,8 +34,8 @@ def is_3d_controller(n: PcieNode):
     return n.class_ is not None and n.class_.startswith("0x0302")
 
 
-def is_ethernet_controller(n: PcieNode):
-    return n.class_ is not None and n.class_.startswith("0x020000")
+def is_network_controller(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x02")
 
 
 def get_class_label(n: PcieNode) -> str:
@@ -45,8 +45,8 @@ def get_class_label(n: PcieNode) -> str:
         return "3D controller"
     elif is_bridge(n):
         return "Bridge"
-    elif is_ethernet_controller(n):
-        return "Ethernet controller"
+    elif is_network_controller(n):
+        return "Network controller"
     else:
         return n.class_ if n.class_ is not None else ""
 
@@ -293,7 +293,7 @@ def get_node_color(n: PcieNode) -> str:
         return "lightblue"
     if is_3d_controller(n):
         return "green"
-    if is_ethernet_controller(n):
+    if is_network_controller(n):
         return "aquamarine1"
     return "white"
 
