@@ -16,3 +16,5 @@ RUN apt-get update && apt-get install -y \
 # Install Python packages
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/python-requirements.txt
 
+# Update PCI IDs database
+RUN update-pciids
