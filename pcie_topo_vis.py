@@ -492,7 +492,9 @@ if __name__ == "__main__":
     if args.output_dir != ".":
         os.makedirs(args.output_dir, exist_ok=True)
     
+    print("Scanning PCIe device trees...")
     roots = get_pcie_trees("/sys/devices")
+    print("✓ PCIe device trees scanned")
 
     # Ignore childless roots.
     roots_with_children = []
@@ -523,4 +525,6 @@ if __name__ == "__main__":
             numa_roots[r.numa_node].append(r)
 
     for numa, roots in numa_roots.items():
+        print(f"Generating topology visualization for NUMA node {numa}...")
         graph_pcie_topology(roots, numa, args.output_dir)
+        print(f"✓ Generated numa_{numa}.pdf")
