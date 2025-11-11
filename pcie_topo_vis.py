@@ -52,7 +52,7 @@ def get_class_label(n: PcieNode) -> str:
     elif is_3d_controller(n):
         return "3D controller"
     elif is_bridge(n):
-        return "Bridge"
+        return "PCI Bridge"
     elif is_ethernet_controller(n):
         return "Ethernet Controller"
     elif is_infiniband_controller(n):
@@ -207,7 +207,7 @@ def is_other_sys_peripheral(n: PcieNode):
 
 
 def is_bridge(node: PcieNode):
-    return node.class_ is not None and node.class_.startswith("0x06")
+    return node.class_ is not None and node.class_.startswith("0x0604")
 
 
 def is_switch(node: PcieNode):
