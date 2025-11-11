@@ -38,6 +38,14 @@ def is_network_controller(n: PcieNode):
     return n.class_ is not None and n.class_.startswith("0x02")
 
 
+def is_ethernet_controller(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x0200")
+
+
+def is_infiniband_controller(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x0207")
+
+
 def get_class_label(n: PcieNode) -> str:
     if is_other_sys_peripheral(n):
         return "Other system peripheral"
@@ -45,6 +53,10 @@ def get_class_label(n: PcieNode) -> str:
         return "3D controller"
     elif is_bridge(n):
         return "Bridge"
+    elif is_ethernet_controller(n):
+        return "Ethernet Controller"
+    elif is_infiniband_controller(n):
+        return "Infiniband Controller"
     elif is_network_controller(n):
         return "Network controller"
     else:
