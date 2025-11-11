@@ -5,6 +5,7 @@ from collections import deque
 from pcie_node import PcieNode
 from pcie_topo_gen import get_pcie_trees
 from collections import defaultdict
+from device_resolver import get_class_name
 import argparse
 import os
 
@@ -60,6 +61,11 @@ def get_class_label(n: PcieNode) -> str:
     elif is_network_controller(n):
         return "Network controller"
     else:
+        # Try to get class name from lspci
+        if n.vendor and n.device:
+            class_name = get_class_name(n.vendor, n.device, n.class_)
+            if class_name:
+                return class_name
         return n.class_ if n.class_ is not None else ""
 
 
