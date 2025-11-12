@@ -1,5 +1,9 @@
 FROM nvcr.io/nvidia/cuda:12.8.1-base-ubuntu24.04
 
+LABEL org.opencontainers.image.source=https://github.com/harvard-cns/intrahost-topo
+LABEL org.opencontainers.image.description="Intra-host Topology Visualizer"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
 # Copy package lists
 COPY system-packages.txt python-requirements.txt /tmp/
 
