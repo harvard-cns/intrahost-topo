@@ -10,11 +10,7 @@ if [ "$1" == "--local" ]; then
     echo "Docker image '$image_name' already exists locally. Skipping build."
   fi
 else
-  echo "Pre-build docker image is currently not available."
-  echo "Please run with --local to build the image locally and run the container."
-  exit 1
-  # TODO: provide pre-built image's repository and tag
-  # image_name="harvard-cns/host-topo-vis:latest"
+  image_name="ghcr.io/rajkiranjoshi/host-topo-vis:latest"
 fi
 
 echo "-----------------------------------------------------"
