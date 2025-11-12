@@ -9,7 +9,7 @@ from typing import Optional, Dict
 
 
 class DeviceResolver:
-    def __init__(self, known_devices_path: str = "Known_devices.json", known_vendors_path: str = "Known_vendors.json"):
+    def __init__(self, known_devices_path: str = "known_devices.json", known_vendors_path: str = "known_vendors.json"):
         self.device_cache: Dict[str, str] = {}
         self.vendor_cache: Dict[str, str] = {}
         self.class_cache: Dict[str, str] = {}
