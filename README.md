@@ -2,7 +2,7 @@
 
 A tool to discover and visualize the intra-host network topology of multi-accelerator servers running Linux. Currently, the tool only supports the PCIe interconnect. 
 
-## Setup
+<!-- ## Setup
 
 The tool uses conda to install and manage the dependencies including the `dot` binary from the [graphviz](https://graphviz.org/download/) package.
 
@@ -16,38 +16,80 @@ The tool uses conda to install and manage the dependencies including the `dot` b
 3. Create the conda environment named `host-topo` using the provided yaml file:
     ```
     conda env create -f conda_env.yaml
-    ```
+    ``` -->
 
 ## Usage
 
-Activate the conda environment `host-topo`:
+<!-- Activate the conda environment `host-topo`:
 ```
 conda activate host-topo
+``` -->
+Git clone this repository and cd into it:
+```
+git clone https://github.com/harvard-cns/intrahost-topo.git
+cd intrahost-topo
 ```
 
-Now run the visualizer:
-```
-python3 pcie_topo_vis.py
-```
+Now follow either of the Docker images or the local setup methods below.
+
+### Using Docker images
+
+
+2. Run the provided `run.sh` script:
+    ```
+    ./run.sh
+    ```
+
+    This runs the latest pre-built Docker image of the tool. If there you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally:
+    ```
+    ./run.sh --local
+    ```
+
+
+### Using local setup
+
+> [!NOTE]  
+> The tool assumes that CUDA drivers and toolkit are installed on the system and `nvidia-smi` is available on the PATH.
+
+
+1. Install the system dependencies mentioned in `system-packages.txt`. Example command for Ubuntu/Debian-based systems:
+    ```
+    sudo apt update && sudo apt install -y $(cat system-packages.txt)
+    ```
+2. Update the PCI IDs database:
+    ```
+    sudo update-pciids
+    ```
+
+3. Install the Python dependencies mentioned in `python-requirements.txt` in a Python virtual environment:
+    ```
+    python3 -m venv venv
+    source venv/bin/activate
+    pip3 install -r python-requirements.txt
+    ```
+
+4. Now run the visualizer tool:
+    ```
+    python3 pcie_topo_vis.py
+    ```
 
 ### Output
 
 The visualizer produces two PDF files one corresponding to each NUMA node (CPU) on the server. The files are named `numa_i.pdf` for `i` is a NUMA node on the current machine. 
 
-### Filtering
-
-To filter which device types are included in the visualization:
-
-1. Open `filter_config.py` in a text editor
-2. Set any filter variable to `True` to include trees containing that device class
-3. Set to `False` to exclude trees containing that device class
-4. Run `python3 PcieTopoVis.py` again
-
-**Note**: When `show_all = True`, all other filter settings are ignored and every node will be displayed.
-
-
 ### Device Name Resolution
 
-The visualizer automatically converts raw PCI vendor/device IDs into human-readable names.
+The visualizer automatically converts raw PCI vendor/device IDs into human-readable names using the [PCI ID database](https://pci-ids.ucw.cz/). You can customize the vendor/device names in the final output by modifying the `known_devices.json` and `known_vendors.json` files. When available, the visualizer uses names from these files instead of the PCI ID database.
+
+### [Optional] Filtering
+
+There can way too many PCIe trees on modern servers. By default, the tool shows all the PCIe trees. To filter which device types are included in the visualization:
+
+1. Open `filter_config.py` in a text editor.
+2. Set any filter variable to `True` to include trees containing that device class.
+3. Set to `False` to exclude trees containing that device class.
+4. Run `python3 pcie_topo_vis.py` again.
+
+**Note**: When `show_all = True`, all other filter settings are ignored and every node will be displayed.
 
 
