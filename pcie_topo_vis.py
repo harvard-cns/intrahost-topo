@@ -7,6 +7,7 @@ from pcie_topo_gen import get_pcie_trees
 from collections import defaultdict
 from device_resolver import get_class_name
 import argparse
+import json
 import os
 
 
@@ -486,15 +487,40 @@ if __name__ == "__main__":
         default=".",
         help="Directory where PDF files will be saved (default: current directory)"
     )
+    parser.add_argument(
+        "--dump-ir",
+        type=str,
+        help="Path to write the PCIe topology JSON dump"
+    )
+    parser.add_argument(
+        "--from-ir",
+        type=str,
+        help="Path to a previously dumped PCIe topology JSON file"
+    )
     args = parser.parse_args()
+
+    if args.dump_ir and args.from_ir:
+        parser.error("Specify only one of --dump-ir or --from-ir.")
     
     # Create output directory if it doesn't exist
     if args.output_dir != ".":
         os.makedirs(args.output_dir, exist_ok=True)
     
-    print("Scanning PCIe device trees...", flush=True)
-    roots = get_pcie_trees("/sys/devices")
-    print("✓ PCIe device trees scanned", flush=True)
+    if args.from_ir:
+        print(f"Loading PCIe topology from {args.from_ir}...", flush=True)
+        with open(args.from_ir, "r") as f:
+            ir_data = json.load(f)
+        roots = [PcieNode.from_dict(node) for node in ir_data]
+        print("✓ Loaded PCIe topology", flush=True)
+    else:
+        print("Scanning PCIe device trees...", flush=True)
+        roots = get_pcie_trees("/sys/devices")
+        print("✓ PCIe device trees scanned", flush=True)
+        if args.dump_ir:
+            print(f"Writing PCIe topology to {args.dump_ir}...", flush=True)
+            with open(args.dump_ir, "w") as f:
+                json.dump([root.to_dict() for root in roots], f, indent=2)
+            print("✓ Topology dump completed", flush=True)
     
     # Ignore childless roots.
     roots_with_children = []

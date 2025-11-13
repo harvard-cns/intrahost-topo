@@ -70,12 +70,25 @@ Now follow either of the Docker images or the local setup methods below.
 
 4. Now run the visualizer tool:
     ```
-    python3 pcie_topo_vis.py
+    python3 pcie_topo_vis.py --output-dir ./output
     ```
 
 ### Output
 
 The visualizer produces two PDF files one corresponding to each NUMA node (CPU) on the server. The files are named `numa_i.pdf` for `i` is a NUMA node on the current machine. 
+
+### Capturing PCIe topology for offline analysis
+
+If you need to debug the topology without direct access to the server, you can export the discovered topology to a JSON IR file and load it later on another machine.
+
+- Dump the topology to JSON:
+    ```
+    python3 pcie_topo_vis.py --dump-ir ./topology.json
+    ```
+- Render PDFs from a previously dumped JSON file:
+    ```
+    python3 pcie_topo_vis.py --from-ir ./topology.json --output-dir ./output
+    ```
 
 ### Device Name Resolution
 

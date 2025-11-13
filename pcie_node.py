@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 
 class PcieNode:
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, auto_load: bool = True) -> None:
         self.path: str = path  # E.g., "/sys/devices/pci0000:e0/0000:e0:05.1".
 
         self.device: Optional[str] = None
@@ -20,7 +20,7 @@ class PcieNode:
         self.current_link_width: Optional[str] = None
         self.children: List = []
 
-        if os.path.exists(self.path):
+        if auto_load and os.path.exists(self.path):
             self.set_device()
             self.set_vendor()
             self.set_lspci_vmm()
@@ -30,6 +30,36 @@ class PcieNode:
             self.set_max_link_speed()
             self.set_current_link_width()
             self.set_max_link_width()
+
+    def to_dict(self) -> Dict:
+        return {
+            "path": self.path,
+            "device": self.device,
+            "vendor": self.vendor,
+            "lspci_vmm": self.lspci_vmm,
+            "class": self.class_,
+            "numa_node": self.numa_node,
+            "max_link_speed": self.max_link_speed,
+            "current_link_speed": self.current_link_speed,
+            "max_link_width": self.max_link_width,
+            "current_link_width": self.current_link_width,
+            "children": [child.to_dict() for child in self.children],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "PcieNode":
+        node = cls(data["path"], auto_load=False)
+        node.device = data.get("device")
+        node.vendor = data.get("vendor")
+        node.lspci_vmm = data.get("lspci_vmm")
+        node.class_ = data.get("class")
+        node.numa_node = data.get("numa_node")
+        node.max_link_speed = data.get("max_link_speed")
+        node.current_link_speed = data.get("current_link_speed")
+        node.max_link_width = data.get("max_link_width")
+        node.current_link_width = data.get("current_link_width")
+        node.children = [cls.from_dict(child) for child in data.get("children", [])]
+        return node
 
     @staticmethod
     def _read_file(file_path: str) -> Optional[str]:
