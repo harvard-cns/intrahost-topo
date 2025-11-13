@@ -47,6 +47,10 @@ def is_infiniband_controller(n: PcieNode):
     return n.class_ is not None and n.class_.startswith("0x0207")
 
 
+def is_nvme_controller(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x010802")
+
+
 def get_class_label(n: PcieNode) -> str:
     if is_other_sys_peripheral(n):
         return "Other system peripheral"
@@ -311,6 +315,8 @@ def get_node_color(n: PcieNode) -> str:
         return "lightblue"
     if is_3d_controller(n):
         return "green"
+    if is_nvme_controller(n):
+        return "burlywood1"
     if is_network_controller(n):
         return "aquamarine1"
     return "white"
