@@ -24,27 +24,30 @@ The tool uses conda to install and manage the dependencies including the `dot` b
 ```
 conda activate host-topo
 ``` -->
-Git clone this repository and cd into it:
+
+### Using pre-built Docker image
+
+Simply run the following command:
 ```
-git clone https://github.com/harvard-cns/intrahost-topo.git
-cd intrahost-topo
+docker run --rm -v $(pwd):/output --gpus=all --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
 ```
 
-Now follow either of the Docker images or the local setup methods below.
+This runs the latest pre-built Docker image of the tool. If there you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally following the instructions below.
 
-### Using Docker images
+### Building Docker image locally and then running it
 
+1. Git clone this repository and cd into it:
+    ```
+    git clone https://github.com/harvard-cns/intrahost-topo.git
+    cd intrahost-topo
+    ```
 
 2. Run the provided `run.sh` script:
-    ```
-    ./run.sh
-    ```
-
-    This runs the latest pre-built Docker image of the tool. If there you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally:
     ```
     ./run.sh --local
     ```
 
+This builds a Docker image called `host-topo-vis` locally and also runs it.
 
 ### Using local setup
 
