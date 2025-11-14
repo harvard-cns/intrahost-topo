@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: host-topo-job
+spec:
+  nodeName: "<node-name>"  # <-- *** CHANGE THIS to your node name ***
+  hostNetwork: true
+  restartPolicy: Never
+  volumes:
+  - name: output-volume
+    emptyDir: {}
+  containers:
+  - name: topo-vis-container
+    image: ghcr.io/rajkiranjoshi/host-topo-vis:latest
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: output-volume
+      mountPath: /output
+  # This is a helper container that will wait for the topo-vis-container to finish and 
+  # then allow copying the output files to the client.
+  - name: helper-container
+    image: busybox:latest
+    volumeMounts:
+    - name: output-volume
+      mountPath: /output
+    command: ["/bin/sleep", "3600"]
+  
