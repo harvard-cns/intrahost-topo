@@ -34,6 +34,15 @@ docker run --rm -v $(pwd):/output --gpus=all --network=host ghcr.io/rajkiranjosh
 
 This runs the latest pre-built Docker image of the tool. If there you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally following the instructions below.
 
+### Using pre-built Docker image on a Kubernetes node
+
+Simply run the provided helper script with the node name of the target server:
+```
+./run_job_pod.sh <node-name>
+```
+The helper script applies the [job-pod.yaml](./job-pod.yaml) manifest file and collects back the output PDF files.
+
+
 ### Building Docker image locally and then running it
 
 1. Git clone this repository and cd into it:
