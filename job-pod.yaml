@@ -6,9 +6,13 @@ spec:
   nodeName: "<node-name>"  # <-- *** CHANGE THIS to your node name ***
   hostNetwork: true
   restartPolicy: Never
+
+  terminationGracePeriodSeconds: 0
+
   volumes:
   - name: output-volume
     emptyDir: {}
+  
   containers:
   - name: topo-vis-container
     image: ghcr.io/rajkiranjoshi/host-topo-vis:latest

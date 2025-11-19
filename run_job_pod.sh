@@ -12,6 +12,16 @@ fi
 NODE_NAME="$1"
 TEMP_YAML="job-pod-temp.yaml"
 
+# Cleanup function
+cleanup() {
+  echo "Cleaning up..."
+  kubectl delete pod host-topo-job 2>/dev/null || true
+  rm -f "$TEMP_YAML"
+}
+
+# Set trap to cleanup on exit
+trap cleanup EXIT
+
 # Create a temporary YAML file with the specified node name
 sed "s/nodeName: \".*\"/nodeName: \"$NODE_NAME\"/" job-pod.yaml > "$TEMP_YAML"
 
@@ -21,17 +31,25 @@ kubectl apply -f "$TEMP_YAML"
 # Wait for the pod to be ready (both containers running)
 kubectl wait --for=condition=ready pod/host-topo-job --timeout=300s
 
-# Wait a bit for the topo-vis-container to finish generating the PDFs
+# Wait for the topo-vis-container to finish generating the PDFs
 # (The helper container keeps the pod alive for file copying)
-sleep 10
+echo "Waiting for topo-vis-container to complete..."
+while true; do
+  sleep 2  # check every 2 seconds
+  CONTAINER_STATE=$(kubectl get pod host-topo-job -o jsonpath='{.status.containerStatuses[?(@.name=="topo-vis-container")].state}')
+  if echo "$CONTAINER_STATE" | grep -q "terminated"; then
+    EXIT_CODE=$(kubectl get pod host-topo-job -o jsonpath='{.status.containerStatuses[?(@.name=="topo-vis-container")].state.terminated.exitCode}')
+    if [ "$EXIT_CODE" = "0" ]; then
+      echo "topo-vis-container completed successfully"
+      break
+    else
+      echo "Error: topo-vis-container failed with exit code $EXIT_CODE"
+      exit 1
+    fi
+  fi
+done
 
 # Copy the output files from the helper container (which has access to the shared volume)
-echo "Copying output PDF files to current directory"
+echo "Copying output PDF files to current directory: numa_0.pdf and numa_1.pdf"
 kubectl cp host-topo-job:/output/numa_0.pdf numa_0.pdf -c helper-container
 kubectl cp host-topo-job:/output/numa_1.pdf numa_1.pdf -c helper-container
-
-# Delete the pod
-kubectl delete pod host-topo-job
-
-# Clean up temporary YAML file
-rm -f "$TEMP_YAML"
