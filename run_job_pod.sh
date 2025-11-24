@@ -29,6 +29,7 @@ echo "Applying pod configuration for node: $NODE_NAME"
 kubectl apply -f "$TEMP_YAML"
 
 # Wait for the pod to be ready (both containers running)
+echo "Waiting for pod to be ready (both containers running)..."
 kubectl wait --for=condition=ready pod/host-topo-job --timeout=300s
 
 # Wait for the topo-vis-container to finish generating the PDFs
@@ -49,7 +50,21 @@ while true; do
   fi
 done
 
+# List the output files (get just the filenames, not full paths)
+echo "Listing generated PDF files..."
+output_files=$(kubectl exec host-topo-job -c helper-container -- find /output -name "*.pdf" -type f -exec basename {} \;)
+
+if [ -z "$output_files" ]; then
+  echo "Error: No PDF files found in /output directory"
+  exit 1
+fi
+
+echo -e "Found PDF files:\n${output_files}"
+
 # Copy the output files from the helper container (which has access to the shared volume)
-echo "Copying output PDF files to current directory: numa_0.pdf and numa_1.pdf"
-kubectl cp host-topo-job:/output/numa_0.pdf numa_0.pdf -c helper-container
-kubectl cp host-topo-job:/output/numa_1.pdf numa_1.pdf -c helper-container
+for file in $output_files; do
+  echo "Copying $file to ${NODE_NAME}_$file"
+  kubectl cp host-topo-job:/output/$file ${NODE_NAME}_$file -c helper-container
+done
+
+echo "Done!"
