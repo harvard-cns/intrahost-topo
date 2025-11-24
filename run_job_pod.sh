@@ -28,9 +28,9 @@ sed "s/nodeName: \".*\"/nodeName: \"$NODE_NAME\"/" job-pod.yaml > "$TEMP_YAML"
 echo "Applying pod configuration for node: $NODE_NAME"
 kubectl apply -f "$TEMP_YAML"
 
-# Wait for the pod to be ready (both containers running)
-echo "Waiting for pod to be ready (both containers running)..."
-kubectl wait --for=condition=ready pod/host-topo-job --timeout=300s
+# Wait for the pod to be scheduled (assigned to a node)
+echo "Waiting for pod to be scheduled..."
+kubectl wait --for=condition=PodScheduled pod/host-topo-job --timeout=300s
 
 # Wait for the topo-vis-container to finish generating the PDFs
 # (The helper container keeps the pod alive for file copying)
