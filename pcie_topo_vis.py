@@ -508,6 +508,10 @@ if __name__ == "__main__":
         if r.children != []:
             roots_with_children.append(r)
 
+    if len(roots_with_children) == 0: # this is likely a VM with flat PCIe topology
+        print("No PCIe device trees found. This is likely a VM with a flat PCIe topology.", flush=True)
+        roots_with_children = roots
+
     # Add synthetic multifunction nodes.
     for r in roots_with_children:
         add_synth_mf_nodes(r)
