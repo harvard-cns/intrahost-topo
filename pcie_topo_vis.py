@@ -48,6 +48,10 @@ def is_infiniband_controller(n: PcieNode):
     return n.class_ is not None and n.class_.startswith("0x0207")
 
 
+def is_nvme_controller(n: PcieNode):
+    return n.class_ is not None and n.class_.startswith("0x010802")
+
+
 def get_class_label(n: PcieNode) -> str:
     if is_other_sys_peripheral(n):
         return "Other system peripheral"
@@ -312,6 +316,8 @@ def get_node_color(n: PcieNode) -> str:
         return "lightblue"
     if is_3d_controller(n):
         return "green"
+    if is_nvme_controller(n):
+        return "burlywood1"
     if is_network_controller(n):
         return "aquamarine1"
     return "white"
@@ -527,6 +533,10 @@ if __name__ == "__main__":
     for r in roots:
         if r.children != []:
             roots_with_children.append(r)
+
+    if len(roots_with_children) == 0: # this is likely a VM with flat PCIe topology
+        print("No PCIe device trees found. This is likely a VM with a flat PCIe topology.", flush=True)
+        roots_with_children = roots
 
     # Add synthetic multifunction nodes.
     for r in roots_with_children:
