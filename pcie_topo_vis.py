@@ -478,6 +478,52 @@ def graph_pcie_topology(roots: List[PcieNode], numa: str, output_dir: str = ".")
                 for id in ids:
                     mf_cluster.node(id)
 
+    # Add NVLink connections between GPU nodes
+    from system_identifiers import get_system_resolver
+    sys_resolver = get_system_resolver()
+    
+    if sys_resolver.has_nvlink_topology():
+        # Build mapping from GPU index to PCIe node ID
+        gpu_to_node_id = {}
+        
+        def find_gpu_nodes(node: PcieNode):
+            """Recursively find GPU nodes and map them to GPU indices."""
+            gpu_idx = sys_resolver.get_gpu_index(node.path)
+            if gpu_idx is not None:
+                node_id = get_node_id(node)
+                gpu_to_node_id[gpu_idx] = node_id
+            
+            for child in node.children:
+                find_gpu_nodes(child)
+        
+        for r in roots:
+            find_gpu_nodes(r)
+        
+        # Add NVLink edges between GPUs
+        processed_pairs = set()
+        for gpu_idx in sys_resolver.get_all_gpu_indices():
+            connections = sys_resolver.get_nvlink_connections(gpu_idx)
+            for other_gpu_idx, link_type in connections.items():
+                # Only add edge once (bidirectional)
+                pair = tuple(sorted([gpu_idx, other_gpu_idx]))
+                if pair not in processed_pairs:
+                    processed_pairs.add(pair)
+                    
+                    source_node_id = gpu_to_node_id.get(gpu_idx)
+                    target_node_id = gpu_to_node_id.get(other_gpu_idx)
+                    
+                    if source_node_id and target_node_id:
+                        # Add NVLink edge with distinct styling
+                        graph.edge(
+                            source_node_id, 
+                            target_node_id, 
+                            label=link_type, 
+                            style="bold", 
+                            color="purple", 
+                            penwidth="3",
+                            constraint="false"  # Allow edge to cross clusters
+                        )
+
     graph.render(graph_name, view=False, cleanup=True)
 
 
@@ -516,7 +562,27 @@ if __name__ == "__main__":
         print(f"Loading PCIe topology from {args.from_ir}...", flush=True)
         with open(args.from_ir, "r") as f:
             ir_data = json.load(f)
-        roots = [PcieNode.from_dict(node) for node in ir_data]
+        
+        # Handle both old format (list of nodes) and new format (dict with nodes and nvlink)
+        if isinstance(ir_data, dict):
+            roots = [PcieNode.from_dict(node) for node in ir_data.get("pcie_topology", [])]
+            # Restore NVLink topology if present
+            if "nvlink_topology" in ir_data:
+                from system_identifiers import get_system_resolver
+                sys_resolver = get_system_resolver()
+                nvlink_data = ir_data["nvlink_topology"]
+                # Convert string keys to integers (JSON uses string keys for object keys)
+                sys_resolver.gpu_to_pci = {
+                    int(k): v for k, v in nvlink_data.get("gpu_to_pci", {}).items()
+                }
+                sys_resolver.nvlink_connections = {
+                    int(k): {int(k2): v2 for k2, v2 in v.items()}
+                    for k, v in nvlink_data.get("nvlink_connections", {}).items()
+                }
+                print("✓ Loaded NVLink topology", flush=True)
+        else:
+            # Old format: just a list of nodes
+            roots = [PcieNode.from_dict(node) for node in ir_data]
         print("✓ Loaded PCIe topology", flush=True)
     else:
         print("Scanning PCIe device trees...", flush=True)
@@ -524,8 +590,19 @@ if __name__ == "__main__":
         print("✓ PCIe device trees scanned", flush=True)
         if args.dump_ir:
             print(f"Writing PCIe topology to {args.dump_ir}...", flush=True)
+            # Include NVLink topology in dump if available
+            from system_identifiers import get_system_resolver
+            sys_resolver = get_system_resolver()
+            dump_data = {
+                "pcie_topology": [root.to_dict() for root in roots]
+            }
+            if sys_resolver.has_nvlink_topology():
+                dump_data["nvlink_topology"] = {
+                    "gpu_to_pci": sys_resolver.gpu_to_pci,
+                    "nvlink_connections": sys_resolver.nvlink_connections
+                }
             with open(args.dump_ir, "w") as f:
-                json.dump([root.to_dict() for root in roots], f, indent=2)
+                json.dump(dump_data, f, indent=2)
             print("✓ Topology dump completed", flush=True)
     
     # Ignore childless roots.
@@ -555,6 +632,12 @@ if __name__ == "__main__":
     else:
         filtered_roots = roots_with_children
 
+    # Check for NVLink topology (will be integrated into NUMA graphs)
+    from system_identifiers import get_system_resolver
+    sys_resolver = get_system_resolver()
+    if sys_resolver.has_nvlink_topology():
+        print("NVLink connections detected - will be displayed in NUMA topology graphs", flush=True)
+    
     numa_roots = defaultdict(list)
     for r in filtered_roots:
         if r.numa_node is not None:
