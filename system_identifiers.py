@@ -181,17 +181,13 @@ class SystemIdentifierResolver:
         return (netdev, rdma, gpu_idx, nvme)
     
     def _load_nvlink_topology(self):
-        """Detect NVLink topology using nvidia-smi topo -m."""
         try:
-            # First, get GPU indices and PCIe addresses (reuse data from _load_gpu_indices)
-            # Build reverse mapping from GPU index to PCIe address
             for pci_addr, gpu_idx in self.pci_to_gpu.items():
                 self.gpu_to_pci[gpu_idx] = pci_addr
             
             if not self.gpu_to_pci:
                 return
             
-            # Get topology matrix
             result = subprocess.run(
                 ["nvidia-smi", "topo", "-m"],
                 capture_output=True,
@@ -202,27 +198,19 @@ class SystemIdentifierResolver:
             if result.returncode != 0:
                 return
             
-            # Parse the topology matrix
-            # nvidia-smi topo -m outputs a matrix where:
-            # - First line has column headers (GPU0, GPU1, etc., possibly with ANSI codes)
-            # - Subsequent lines have row labels and connection types
+            #nvidia-smi topo -m outputs a matrix where:
             lines = [line for line in result.stdout.splitlines() if line.strip()]
-            
-            # Remove ANSI escape codes from lines
             ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             clean_lines = [ansi_escape.sub('', line) for line in lines]
             
-            # Find the header line with GPU indices
             header_line_idx = None
             gpu_indices = []
-            gpu_column_indices = []  # Track which columns correspond to GPUs
+            gpu_column_indices = []
             
             for i, line in enumerate(clean_lines):
-                # Look for line with GPU headers (e.g., "        GPU0    GPU1    GPU2")
-                # Split by tabs first, then by whitespace if needed
+                #line with GPU headers (e.g., "        GPU0    GPU1    GPU2")
                 parts = line.split('\t') if '\t' in line else line.split()
                 if len(parts) > 1:
-                    # Extract GPU indices from header and track their column positions
                     for col_idx, part in enumerate(parts):
                         part_clean = part.strip()
                         if part_clean.startswith('GPU'):
@@ -239,14 +227,10 @@ class SystemIdentifierResolver:
             if not gpu_indices:
                 return
             
-            # Parse connection matrix (lines after header)
             for i, line in enumerate(clean_lines[header_line_idx + 1:], start=0):
-                # Split by tabs first, then by whitespace if needed
                 parts = line.split('\t') if '\t' in line else line.split()
                 if len(parts) < 2:
                     continue
-                
-                # First part is the source GPU label (e.g., "GPU0")
                 source_label = parts[0].strip()
                 source_match = re.search(r'GPU(\d+)', source_label)
                 if not source_match:
@@ -257,11 +241,9 @@ class SystemIdentifierResolver:
                 except (ValueError, AttributeError):
                     continue
                 
-                # Parse connections - only check columns that correspond to GPUs
-                # Column 0 is the row label, data columns align with header columns:
+                #parse connections
                 # - Header column 1 (GPU0) -> Data column 1
                 # - Header column 2 (GPU1) -> Data column 2
-                # So: data_col_idx = header_col_idx
                 for header_col_idx, target_gpu_idx in zip(gpu_column_indices, gpu_indices):
                     data_col_idx = header_col_idx
                     if data_col_idx >= len(parts):
@@ -271,18 +253,14 @@ class SystemIdentifierResolver:
                         continue
                     
                     conn = parts[data_col_idx].strip()
-                    # Skip "X" (self) and empty connections
                     if conn == 'X' or not conn:
                         continue
                     
-                    # Only store NVLink connections (NV1, NV2, NV3, NV4, etc.)
                     if conn.startswith('NV'):
-                        # Store connection (bidirectional)
                         if source_gpu_idx not in self.nvlink_connections:
                             self.nvlink_connections[source_gpu_idx] = {}
                         self.nvlink_connections[source_gpu_idx][target_gpu_idx] = conn
                         
-                        # Also store reverse connection
                         if target_gpu_idx not in self.nvlink_connections:
                             self.nvlink_connections[target_gpu_idx] = {}
                         self.nvlink_connections[target_gpu_idx][source_gpu_idx] = conn
