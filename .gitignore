@@ -1,3 +1,4 @@
 *.png
 *.pdf
 __pycache__/
+topology.json
