@@ -24,7 +24,7 @@ spec:
   # This is a helper container that will wait for the topo-vis-container to finish and 
   # then allow copying the output files to the client.
   - name: helper-container
-    image: busybox:latest
+    image: quay.io/quay/busybox:latest
     volumeMounts:
     - name: output-volume
       mountPath: /output
