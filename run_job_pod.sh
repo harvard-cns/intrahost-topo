@@ -32,6 +32,25 @@ kubectl apply -f "$TEMP_YAML"
 echo "Waiting for pod to be scheduled..."
 kubectl wait --for=condition=PodScheduled pod/host-topo-job --timeout=300s
 
+# For DEBUGGING: Check for image pull errors in all containers
+# echo "Checking for image pull errors..."
+# for i in {1..30}; do
+#   sleep 2
+#   IMAGE_PULL_ERRORS=$(kubectl get pod host-topo-job -o jsonpath='{.status.containerStatuses[*].state.waiting.reason}' 2>/dev/null)
+#   if echo "$IMAGE_PULL_ERRORS" | grep -q "ImagePullBackOff\|ErrImagePull"; then
+#     echo "Error: Failed to pull container image(s)"
+#     kubectl describe pod host-topo-job | grep -A 10 "Events:"
+#     exit 1
+#   fi
+  
+#   # Check if both containers are ready or at least running
+#   CONTAINERS_READY=$(kubectl get pod host-topo-job -o jsonpath='{.status.containerStatuses[*].ready}' 2>/dev/null)
+#   if [ ! -z "$CONTAINERS_READY" ]; then
+#     # At least one status exists, images are pulling or pulled
+#     break
+#   fi
+# done
+
 # Wait for the topo-vis-container to finish generating the PDFs
 # (The helper container keeps the pod alive for file copying)
 echo "Waiting for topo-vis-container to complete..."
@@ -49,6 +68,8 @@ while true; do
     fi
   fi
 done
+
+sleep 2
 
 # List the output files (get just the filenames, not full paths)
 echo "Listing generated PDF files..."
