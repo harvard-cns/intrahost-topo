@@ -13,13 +13,32 @@ else
   image_name="ghcr.io/rajkiranjoshi/host-topo-vis:latest"
 fi
 
+# Detect GPU type and set appropriate Docker flags
+gpu_flags=""
+
+# Check for NVIDIA GPUs
+if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+  echo "Detected NVIDIA GPU(s)"
+  gpu_flags="--gpus=all"
+fi
+
+# Check for AMD GPUs (ROCm uses /dev/kfd and /dev/dri)
+if [ -e /dev/kfd ]; then
+  echo "Detected AMD GPU(s)"
+  gpu_flags="$gpu_flags --device=/dev/kfd --device=/dev/dri --group-add video"
+fi
+
+if [ -z "$gpu_flags" ]; then
+  echo "Warning: No NVIDIA or AMD GPUs detected. Running without GPU passthrough."
+fi
+
 echo "-----------------------------------------------------"
 echo "Running the container with the image: $image_name"
 echo "-----------------------------------------------------"
 # Run the container with automatic cleanup
 docker run --rm \
     -v $(pwd):/output \
-    --gpus=all \
+    $gpu_flags \
     --network=host \
     $image_name
 echo "Done!"

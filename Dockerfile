@@ -12,6 +12,18 @@ RUN apt-get update && apt-get install -y \
     $(cat /tmp/system-packages.txt) \
     && rm -rf /var/lib/apt/lists/*
 
+# Add ROCm repository and install amd-smi for AMD GPU support
+RUN apt-get update && apt-get install -y wget gnupg2 && \
+    mkdir -p /etc/apt/keyrings && \
+    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/latest noble main" > /etc/apt/sources.list.d/rocm.list && \
+    apt-get update && \
+    apt-get install -y amd-smi-lib && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add ROCm bin to PATH for amd-smi
+ENV PATH="/opt/rocm/bin:${PATH}"
+
 # Install Python packages
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/python-requirements.txt
 
