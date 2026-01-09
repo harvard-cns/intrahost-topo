@@ -36,6 +36,10 @@ def is_3d_controller(n: PcieNode):
     return n.class_ is not None and n.class_.startswith("0x0302")
 
 
+def is_processing_accelerator(n: PcieNode): # used by AMD Instinct GPUs
+    return n.class_ is not None and n.class_.startswith("0x1200")
+
+
 def is_network_controller(n: PcieNode):
     return n.class_ is not None and n.class_.startswith("0x02")
 
@@ -57,6 +61,8 @@ def get_class_label(n: PcieNode) -> str:
         return "Other system peripheral"
     elif is_3d_controller(n):
         return "3D controller"
+    elif is_processing_accelerator(n): # used by AMD Instinct GPUs
+        return "Processing accelerator"
     elif is_bridge(n):
         return "PCI Bridge"
     elif is_ethernet_controller(n):
@@ -315,6 +321,8 @@ def get_node_color(n: PcieNode) -> str:
     if is_bridge(n):
         return "lightblue"
     if is_3d_controller(n):
+        return "green"
+    if is_processing_accelerator(n): # used by AMD Instinct GPUs
         return "green"
     if is_nvme_controller(n):
         return "burlywood1"
