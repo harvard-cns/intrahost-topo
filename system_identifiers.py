@@ -80,6 +80,12 @@ class SystemIdentifierResolver:
             pass
     
     def _load_gpu_indices(self):
+        """Load GPU indices for both NVIDIA and AMD GPUs."""
+        self._load_nvidia_gpu_indices()
+        self._load_amd_gpu_indices()
+    
+    def _load_nvidia_gpu_indices(self):
+        """Load NVIDIA GPU indices using nvidia-smi."""
         try:
             result = subprocess.run(
                 ["nvidia-smi", "--query-gpu=index,pci.bus_id", "--format=csv,noheader,nounits"],
@@ -102,6 +108,58 @@ class SystemIdentifierResolver:
                             self.pci_to_gpu[normalized] = int(gpu_index)
                         except ValueError:
                             continue
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            pass
+    
+    def _load_amd_gpu_indices(self):
+        """Load AMD GPU indices using amd-smi."""
+        try:
+            result = subprocess.run(
+                ["amd-smi"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode != 0:
+                return
+            
+            # Parse amd-smi output format:
+            # | 0000:11:00.0    AMD Instinct MI300X | ... |
+            # |   0       0       1        SPX/NPS1 | ... |
+            # BDF line contains the PCIe address, next line has GPU index as first number
+            
+            lines = result.stdout.splitlines()
+            current_bdf = None
+            
+            for line in lines:
+                line = line.strip()
+                if not line.startswith('|'):
+                    continue
+                
+                # Remove leading/trailing pipes and strip
+                content = line.strip('|').strip()
+                
+                # Check for BDF line (starts with domain:bus:device.function pattern)
+                bdf_match = re.match(r'^([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9])', content)
+                if bdf_match:
+                    current_bdf = bdf_match.group(1).lower()
+                    continue
+                
+                # If we have a BDF, look for the GPU index line (starts with GPU index number)
+                if current_bdf:
+                    # GPU index line format: "  0       0       1        SPX/NPS1 | ..."
+                    # First number is GPU index
+                    index_match = re.match(r'^\s*(\d+)\s+', content)
+                    if index_match:
+                        try:
+                            gpu_index = int(index_match.group(1))
+                            normalized = self._normalize_pci_address(current_bdf)
+                            self.pci_to_gpu[normalized] = gpu_index
+                        except ValueError:
+                            pass
+                        current_bdf = None
+                        
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
             pass
     
