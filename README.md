@@ -27,9 +27,21 @@ conda activate host-topo
 
 ### Using pre-built Docker image
 
-Simply run the following command:
+Simply run the following command depending on the GPU setup on your system:
+
+**For system with NVIDIA GPUs:**
 ```
 docker run --rm -v $(pwd):/output --gpus=all --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
+```
+
+**For system with AMD GPUs:**
+```
+docker run --rm -v $(pwd):/output --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
+```
+
+**For system with both NVIDIA and AMD GPUs:**
+```
+docker run --rm -v $(pwd):/output --gpus=all --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
 ```
 
 This runs the latest pre-built Docker image of the tool. If there you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally following the instructions below.
