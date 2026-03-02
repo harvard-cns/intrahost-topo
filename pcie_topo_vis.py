@@ -595,7 +595,7 @@ if __name__ == "__main__":
     else:
         print("Scanning PCIe device trees...", flush=True)
         roots = get_pcie_trees("/sys/devices")
-        print("✓ PCIe device trees scanned", flush=True)
+        print(f"✓ PCIe device trees scanned ({len(roots)} root device(s) found)", flush=True)
         if args.dump_ir:
             print(f"Writing PCIe topology to {args.dump_ir}...", flush=True)
             # Include NVLink topology in dump if available
@@ -613,14 +613,18 @@ if __name__ == "__main__":
                 json.dump(dump_data, f, indent=2)
             print("✓ Topology dump completed", flush=True)
     
+    if not roots:
+        print("No PCIe devices found in /sys/devices. Nothing to visualize.", flush=True)
+        exit(0)
+
     # Ignore childless roots.
     roots_with_children = []
     for r in roots:
         if r.children != []:
             roots_with_children.append(r)
 
-    if len(roots_with_children) == 0: # this is likely a VM with flat PCIe topology
-        print("No PCIe device trees found. This is likely a VM with a flat PCIe topology.", flush=True)
+    if len(roots_with_children) == 0:
+        print(f"No PCIe device trees found (all {len(roots)} root(s) are childless). This is likely a VM with a flat PCIe topology.", flush=True)
         roots_with_children = roots
 
     # Add synthetic multifunction nodes.
@@ -648,8 +652,14 @@ if __name__ == "__main__":
     
     numa_roots = defaultdict(list)
     for r in filtered_roots:
-        if r.numa_node is not None:
-            numa_roots[r.numa_node].append(r)
+        numa_key = r.numa_node if r.numa_node is not None else "unknown"
+        numa_roots[numa_key].append(r)
+
+    if not numa_roots:
+        print("No devices to visualize after NUMA grouping.", flush=True)
+        exit(0)
+
+    print(f"NUMA grouping: {{{', '.join(f'{k}: {len(v)} device(s)' for k, v in numa_roots.items())}}}", flush=True)
 
     for numa, roots in numa_roots.items():
         print(f"Generating topology visualization for NUMA node {numa}...", flush=True)

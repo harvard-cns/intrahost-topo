@@ -55,9 +55,17 @@ def get_pcie_trees(path: str = "/sys/devices") -> List[PcieNode]:
     except Exception as e:
         print(f"Error getting list of containers: {e}")
 
+    if not containers:
+        print(f"  No PCI containers found in {path}", flush=True)
+    else:
+        print(f"  Found {len(containers)} PCI container(s): {[os.path.basename(c) for c in containers]}", flush=True)
+
     nodes: List[PcieNode] = []
     for container in containers:
-        nodes.extend(explore_pcie_container(container))
+        container_nodes = explore_pcie_container(container)
+        if not container_nodes:
+            print(f"  {os.path.basename(container)}: no PCI nodes found", flush=True)
+        nodes.extend(container_nodes)
 
     return nodes
 
