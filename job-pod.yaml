@@ -12,6 +12,10 @@ spec:
   volumes:
   - name: output-volume
     emptyDir: {}
+  - name: host-sys
+    hostPath:
+      path: /sys
+      type: Directory
   
   containers:
   - name: topo-vis-container
@@ -21,6 +25,9 @@ spec:
     volumeMounts:
     - name: output-volume
       mountPath: /output
+    - name: host-sys
+      mountPath: /sys
+      readOnly: true
   # This is a helper container that will wait for the topo-vis-container to finish and 
   # then allow copying the output files to the client.
   - name: helper-container
