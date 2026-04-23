@@ -44,7 +44,34 @@ docker run --rm -v $(pwd):/output --device=/dev/kfd --device=/dev/dri --group-ad
 docker run --rm -v $(pwd):/output --gpus=all --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
 ```
 
-This runs the latest pre-built Docker image of the tool. If there you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally following the instructions below.
+#### Rootless Podman and bind mounts
+
+If you use **rootless Podman** (including setups where `docker` is a compatibility alias for Podman), the process UID inside the container’s user namespace does not match your host UID on a bind-mounted directory. The image writes PDFs under `/output`, which is typically a mode `755` tree owned only by your user, so you may see `PermissionError: [Errno 13] Permission denied` when creating files such as `/output/numa_1`.
+
+Add **`--userns=keep-id`** and **`--user $(id -u):$(id -g)`** so the container runs with the same numeric UID/GID as your login on the host for that mount. On RHEL, Fedora, or other systems with **SELinux enforcing**, append **`:Z`** or **`:z`** to the volume so the mount label allows container writes (for example `-v "$(pwd):/output:Z"`).
+
+**NVIDIA (rootless Podman):**
+```
+podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
+  -v "$(pwd):/output:Z" --gpus=all --network=host \
+  ghcr.io/rajkiranjoshi/host-topo-vis:latest
+```
+
+**AMD (rootless Podman):**
+```
+podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
+  -v "$(pwd):/output:Z" --device=/dev/kfd --device=/dev/dri --group-add video --network=host \
+  ghcr.io/rajkiranjoshi/host-topo-vis:latest
+```
+
+**NVIDIA and AMD (rootless Podman):**
+```
+podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
+  -v "$(pwd):/output:Z" --gpus=all --device=/dev/kfd --device=/dev/dri --group-add video --network=host \
+  ghcr.io/rajkiranjoshi/host-topo-vis:latest
+```
+
+This runs the latest pre-built Docker image of the tool. If you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally following the instructions below.
 
 ### Using pre-built Docker image on a Kubernetes node
 
