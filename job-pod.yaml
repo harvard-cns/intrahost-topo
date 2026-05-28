@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: host-topo-job
 spec:
-  nodeName: "<node-name>"  # <-- *** CHANGE THIS to your node name ***
+  nodeName: "REPLACE_NODE_NAME"  # Will be replaced by run_job_pod.sh
   hostNetwork: true
   restartPolicy: Never
 
@@ -19,9 +19,18 @@ spec:
   
   containers:
   - name: topo-vis-container
-    image: ghcr.io/rajkiranjoshi/host-topo-vis:latest
+    image: ghcr.io/harvard-cns/host-topo-vis:latest
     securityContext:
       privileged: true
+    resources:
+      requests:
+        nvidia.com/gpu: REPLACE_NVIDIA_GPU_COUNT
+        amd.com/gpu: REPLACE_AMD_GPU_COUNT
+        REPLACE_RDMA_RESOURCE
+      limits:
+        nvidia.com/gpu: REPLACE_NVIDIA_GPU_COUNT
+        amd.com/gpu: REPLACE_AMD_GPU_COUNT
+        REPLACE_RDMA_RESOURCE
     volumeMounts:
     - name: output-volume
       mountPath: /output

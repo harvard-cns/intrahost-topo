@@ -10,7 +10,7 @@ if [ "$1" == "--local" ]; then
     echo "Docker image '$image_name' already exists locally. Skipping build."
   fi
 else
-  image_name="ghcr.io/rajkiranjoshi/host-topo-vis:latest"
+  image_name="ghcr.io/harvard-cns/host-topo-vis:latest"
 fi
 
 # Detect GPU type and set appropriate Docker flags
