@@ -100,7 +100,9 @@ class SystemIdentifierResolver:
                     if len(parts) >= 2:
                         gpu_index = parts[0].strip()
                         pci_bus_id = parts[1].strip()
-                        pci_bus_id = pci_bus_id.replace('00000000:', '0000:')
+                        # nvidia-smi may report 8-digit domains (e.g. 00000001:00:00.0);
+                        # sysfs uses 4-digit domains (e.g. 0001:00:00.0)
+                        pci_bus_id = re.sub(r'^0000([0-9a-fA-F]{4}:)', r'\1', pci_bus_id)
                         pci_bus_id = pci_bus_id.lower()
                         normalized = self._normalize_pci_address(pci_bus_id)
                         

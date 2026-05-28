@@ -37,6 +37,44 @@ def explore_pcie_container(path: str) -> List[PcieNode]:
     return nodes
 
 
+def _discover_pci_containers(path: str) -> List[str]:
+    """
+    Discover PCI containers (pciXXXX:XX directories) by following symlinks
+    in /sys/bus/pci/devices/ and walking up to find the container parent.
+    Falls back to scanning the top level of `path` directly.
+    """
+    containers: set = set()
+
+    # Primary: follow /sys/bus/pci/devices/ symlinks to find containers
+    bus_pci_dir = "/sys/bus/pci/devices"
+    if os.path.exists(bus_pci_dir):
+        try:
+            for dev in os.listdir(bus_pci_dir):
+                real_path = os.path.realpath(os.path.join(bus_pci_dir, dev))
+                parent = os.path.dirname(real_path)
+                while parent and parent != "/":
+                    if pci_container_pattern.match(os.path.basename(parent)):
+                        containers.add(parent)
+                        break
+                    parent = os.path.dirname(parent)
+        except Exception as e:
+            print(f"Error discovering PCI containers from {bus_pci_dir}: {e}")
+
+    # Fallback: scan top level of the sysfs devices path
+    if not containers:
+        try:
+            with os.scandir(path) as it:
+                for entry in it:
+                    if entry.is_dir(follow_symlinks=False) and pci_container_pattern.match(
+                        entry.name
+                    ):
+                        containers.add(entry.path)
+        except Exception as e:
+            print(f"Error scanning {path}: {e}")
+
+    return sorted(containers)
+
+
 def get_pcie_trees(path: str = "/sys/devices") -> List[PcieNode]:
     """
     Args:
@@ -44,16 +82,7 @@ def get_pcie_trees(path: str = "/sys/devices") -> List[PcieNode]:
     Returns:
         List of roots.
     """
-    containers: List[str] = []
-    try:
-        with os.scandir(path) as it:
-            for entry in it:
-                if entry.is_dir(follow_symlinks=False) and pci_container_pattern.match(
-                    entry.name
-                ):
-                    containers.append(entry.path)
-    except Exception as e:
-        print(f"Error getting list of containers: {e}")
+    containers = _discover_pci_containers(path)
 
     if not containers:
         print(f"  No PCI containers found in {path}", flush=True)
