@@ -31,17 +31,17 @@ Simply run the following command depending on the GPU setup on your system:
 
 **For system with NVIDIA GPUs:**
 ```
-docker run --rm -v $(pwd):/output --gpus=all --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
+docker run --rm -v $(pwd):/output --gpus=all --network=host ghcr.io/harvard-cns/host-topo-vis:latest
 ```
 
 **For system with AMD GPUs:**
 ```
-docker run --rm -v $(pwd):/output --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
+docker run --rm -v $(pwd):/output --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/harvard-cns/host-topo-vis:latest
 ```
 
 **For system with both NVIDIA and AMD GPUs:**
 ```
-docker run --rm -v $(pwd):/output --gpus=all --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/rajkiranjoshi/host-topo-vis:latest
+docker run --rm -v $(pwd):/output --gpus=all --device=/dev/kfd --device=/dev/dri --group-add video --network=host ghcr.io/harvard-cns/host-topo-vis:latest
 ```
 
 #### Rootless Podman and bind mounts
@@ -54,31 +54,52 @@ Add **`--userns=keep-id`** and **`--user $(id -u):$(id -g)`** so the container r
 ```
 podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
   -v "$(pwd):/output:Z" --gpus=all --network=host \
-  ghcr.io/rajkiranjoshi/host-topo-vis:latest
+  ghcr.io/harvard-cns/host-topo-vis:latest
 ```
 
 **AMD (rootless Podman):**
 ```
 podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
   -v "$(pwd):/output:Z" --device=/dev/kfd --device=/dev/dri --group-add video --network=host \
-  ghcr.io/rajkiranjoshi/host-topo-vis:latest
+  ghcr.io/harvard-cns/host-topo-vis:latest
 ```
 
 **NVIDIA and AMD (rootless Podman):**
 ```
 podman run --rm --userns=keep-id --user "$(id -u):$(id -g)" \
   -v "$(pwd):/output:Z" --gpus=all --device=/dev/kfd --device=/dev/dri --group-add video --network=host \
-  ghcr.io/rajkiranjoshi/host-topo-vis:latest
+  ghcr.io/harvard-cns/host-topo-vis:latest
 ```
 
 This runs the latest pre-built Docker image of the tool. If you encounter rate limiting issues in pulling the pre-built Docker image, you can also build and run the image locally following the instructions below.
 
 ### Using pre-built Docker image on a Kubernetes node
 
-Simply run the provided helper script with the node name of the target server:
+Run the provided helper script with the node name of the target server:
 ```
 ./run_job_pod.sh <node-name>
 ```
+
+On some cloud Kubernetes providers (e.g., AKS, GKE, EKS), a privileged pod may have limited access to GPU and RDMA devices without explicitly requesting them. Use the optional flags to request these resources:
+
+```
+./run_job_pod.sh <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource: count>]
+```
+
+**Examples:**
+```bash
+# Node with 8 NVIDIA GPUs and RDMA
+./run_job_pod.sh my-gpu-node --request-nvidia-gpus 8 --request-rdma "rdma/shared_ib: 1"
+
+# Node with 4 AMD GPUs
+./run_job_pod.sh my-amd-node --request-amd-gpus 4
+
+# Node with no special resource requirements
+./run_job_pod.sh my-node
+```
+
+The `--request-rdma` flag accepts the full resource key and count as a string (e.g., `"rdma/shared_ib: 1"`, `"rdma/ib: 1"`) since the RDMA resource name varies across clusters.
+
 The helper script applies the [job-pod.yaml](./job-pod.yaml) manifest file and collects back the output PDF files.
 
 
