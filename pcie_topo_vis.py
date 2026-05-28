@@ -86,7 +86,7 @@ def get_node_label(n: PcieNode) -> str:
     in the rendered Graphviz image.
     """
 
-    label = (basename(n.path)[5:]) + "\n"
+    label = basename(n.path) + "\n"
     
     from device_resolver import get_device_resolver
     resolver = get_device_resolver()
