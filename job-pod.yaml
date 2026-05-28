@@ -20,6 +20,7 @@ spec:
   containers:
   - name: topo-vis-container
     image: ghcr.io/harvard-cns/host-topo-vis:latest
+    imagePullPolicy: Always
     securityContext:
       privileged: true
     resources:
