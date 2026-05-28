@@ -1,11 +1,12 @@
 #! /bin/bash
 
 # This script will create a pod that will run the topo-vis-container and then copy the output files to the client.
-# Usage: ./run_job_pod.sh <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource_key: count>]
+# Usage: ./run_job_pod.sh <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource_key: count>] [--debug]
 
 nvidia_gpu_count=""
 amd_gpu_count=""
 rdma_resource=""
+debug_mode=false
 NODE_NAME=""
 
 while [[ $# -gt 0 ]]; do
@@ -22,12 +23,16 @@ while [[ $# -gt 0 ]]; do
             rdma_resource="$2"
             shift 2
             ;;
+        --debug)
+            debug_mode=true
+            shift
+            ;;
         *)
             if [ -z "$NODE_NAME" ]; then
                 NODE_NAME="$1"
             else
                 echo "Error: Unknown argument '$1'"
-                echo "Usage: $0 <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource_key: count>]"
+                echo "Usage: $0 <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource_key: count>] [--debug]"
                 exit 1
             fi
             shift
@@ -36,13 +41,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$NODE_NAME" ]; then
-    echo "Usage: $0 <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource_key: count>]"
+    echo "Usage: $0 <node-name> [--request-nvidia-gpus <N>] [--request-amd-gpus <N>] [--request-rdma <resource_key: count>] [--debug]"
     echo ""
     echo "Arguments:"
     echo "  <node-name>                          Name of the Kubernetes node to deploy the pod on"
     echo "  --request-nvidia-gpus <N>            Optional: Number of NVIDIA GPUs to request (omitted if not specified)"
     echo "  --request-amd-gpus <N>               Optional: Number of AMD GPUs to request (omitted if not specified)"
     echo "  --request-rdma <resource_key: count> Optional: RDMA resource to request, e.g. \"rdma/shared_ib: 1\" (omitted if not specified)"
+    echo "  --debug                              Optional: Show container logs and output directory listing"
     exit 1
 fi
 
@@ -153,17 +159,16 @@ done
 
 sleep 2
 
-# Show container logs for debugging
-echo ""
-echo "=== topo-vis-container logs ==="
-kubectl logs host-topo-job -c topo-vis-container
-echo "=== end logs ==="
-echo ""
-
-# List all files in /output for debugging
-echo "Contents of /output directory:"
-kubectl exec host-topo-job -c helper-container -- ls -la /output
-echo ""
+if [ "$debug_mode" = true ]; then
+  echo ""
+  echo "=== topo-vis-container logs ==="
+  kubectl logs host-topo-job -c topo-vis-container
+  echo "=== end logs ==="
+  echo ""
+  echo "Contents of /output directory:"
+  kubectl exec host-topo-job -c helper-container -- ls -la /output
+  echo ""
+fi
 
 # List the output files (get just the filenames, not full paths)
 echo "Listing generated PDF files..."
